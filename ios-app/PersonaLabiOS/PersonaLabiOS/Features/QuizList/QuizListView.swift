@@ -8,7 +8,7 @@ struct QuizListView: View {
     @State private var editingQuiz: Quiz?
 
     @State private var showingShareSheet = false
-    @State private var isPreparingShare = false
+    @State private var sharingQuizID: UUID?
     @State private var shareItems: [Any] = []
 
     var body: some View {
@@ -133,7 +133,9 @@ struct QuizListView: View {
     }
 
     private func quizCard(_ quiz: Quiz) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let isSharing = sharingQuizID == quiz.id
+
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text(quiz.title)
                     .font(.headline)
@@ -173,19 +175,20 @@ struct QuizListView: View {
                 Button {
                     Task { await prepareShare(for: quiz) }
                 } label: {
-                    Label(isPreparingShare ? "発行中" : "リンク発行", systemImage: "link.badge.plus")
+                    Label(isSharing ? "発行中" : "リンク発行", systemImage: isSharing ? "arrow.triangle.2.circlepath" : "link.badge.plus")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(PopTheme.accent)
-                .disabled(isPreparingShare)
+                .disabled(isSharing)
             }
         }
         .popCard(cornerRadius: 18)
     }
 
     private func prepareShare(for quiz: Quiz) async {
-        isPreparingShare = true
-        defer { isPreparingShare = false }
+        guard sharingQuizID == nil else { return }
+        sharingQuizID = quiz.id
+        defer { sharingQuizID = nil }
 
         await state.buildShareMessage(for: quiz)
         guard let payload = state.sharePayload else {

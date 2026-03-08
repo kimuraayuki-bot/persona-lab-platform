@@ -283,11 +283,21 @@ final class AppState: ObservableObject {
                     accessToken: session.accessToken
                 )
             } else {
-                published = try await quizDataClient.createQuiz(
-                    quiz: quiz,
-                    creatorID: session.userID,
-                    accessToken: session.accessToken
-                )
+                do {
+                    published = try await quizDataClient.createQuiz(
+                        quiz: quiz,
+                        creatorID: session.userID,
+                        accessToken: session.accessToken
+                    )
+                } catch let publishError as QuizDataClientError {
+                    if case .server(let statusCode, _) = publishError,
+                       statusCode == 409,
+                       let existing = try await quizDataClient.fetchQuiz(publicID: quiz.publicID) {
+                        published = existing
+                    } else {
+                        throw publishError
+                    }
+                }
             }
 
             insertOrReplaceQuiz(published)

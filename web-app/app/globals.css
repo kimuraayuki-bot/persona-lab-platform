@@ -192,3 +192,55 @@ main {
   border-radius: 12px;
   padding: 10px;
 }
+
+.scale-wrap {
+  display: grid;
+  gap: 12px;
+}
+
+.scale-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.scale-points {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.scale-point {
+  border-radius: 999px;
+  border: 1px solid #ffd0cf;
+  background: color-mix(in srgb, var(--accent) 58%, var(--accent-2) 42%);
+  opacity: 0.32;
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.scale-point:hover {
+  transform: translateY(-1px);
+  opacity: 0.5;
+}
+
+.scale-point.active {
+  opacity: 1;
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px #ff9b96;
+}
+
+.scale-selection {
+  text-align: center;
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .scale-points {
+    gap: 6px;
+  }
+}

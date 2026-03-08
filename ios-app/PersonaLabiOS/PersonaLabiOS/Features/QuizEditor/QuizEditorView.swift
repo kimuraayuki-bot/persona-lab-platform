@@ -185,7 +185,7 @@ struct QuizEditorView: View {
                 .font(.headline)
                 .foregroundStyle(PopTheme.textPrimary)
 
-            Text("各軸で左側/右側の英字コードを設定できます（例: E / I）。同点時の採用側も選択できます。")
+            Text("各軸で左側/右側の英字コードを設定できます（例: E / I）。同点時にどちらを使うか選択できます。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
@@ -206,8 +206,8 @@ struct QuizEditorView: View {
                     }
 
                     Picker("同点時", selection: tieBreakBinding(axis.axisID)) {
-                        Text("左コードを採用").tag(TieBreakSide.positive)
-                        Text("右コードを採用").tag(TieBreakSide.negative)
+                        Text("同点時は左を使う").tag(TieBreakSide.positive)
+                        Text("同点時は右を使う").tag(TieBreakSide.negative)
                     }
                     .pickerStyle(.segmented)
                 }

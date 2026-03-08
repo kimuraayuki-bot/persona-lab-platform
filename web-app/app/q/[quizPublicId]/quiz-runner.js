@@ -18,6 +18,51 @@ function axisValue(axisKey, scores) {
   }
 }
 
+function bubbleSize(index) {
+  return [42, 36, 30, 24, 30, 36, 42][index] ?? 30;
+}
+
+function selectionLabel(index) {
+  switch (index) {
+    case 0:
+      return "とてもそう思う";
+    case 1:
+      return "ややそう思う";
+    case 2:
+      return "少しそう思う";
+    case 3:
+      return "どちらでもない";
+    case 4:
+      return "少しそう思わない";
+    case 5:
+      return "ややそう思わない";
+    case 6:
+      return "とてもそう思わない";
+    default:
+      return "選択済み";
+  }
+}
+
+function normalizeEdgeLabel(text, fallback) {
+  const trimmed = (text ?? "").trim();
+  if (!trimmed || trimmed === "どちらでもない") {
+    return fallback;
+  }
+
+  const prefixes = ["とても", "やや", "少し"];
+  for (const prefix of prefixes) {
+    if (trimmed.startsWith(prefix) && trimmed.length > prefix.length) {
+      return trimmed.slice(prefix.length);
+    }
+  }
+
+  return trimmed;
+}
+
+function isScaleQuestion(question) {
+  return Array.isArray(question?.choices) && question.choices.length === 7;
+}
+
 export default function QuizRunner({ quiz, quizPublicId, token }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -49,6 +94,41 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
   const resultDetail = result?.detail || matchedProfile?.detail || "";
 
   const canMoveNext = Boolean(currentQuestion && answers[currentQuestion.id]);
+
+  const sortedChoices = useMemo(() => {
+    if (!currentQuestion?.choices) {
+      return [];
+    }
+    return [...currentQuestion.choices].sort((a, b) => a.orderIndex - b.orderIndex);
+  }, [currentQuestion]);
+
+  const leftLabel = useMemo(() => {
+    if (!isScaleQuestion(currentQuestion)) {
+      return "";
+    }
+    return normalizeEdgeLabel(sortedChoices[0]?.body, "そう思う");
+  }, [currentQuestion, sortedChoices]);
+
+  const rightLabel = useMemo(() => {
+    if (!isScaleQuestion(currentQuestion)) {
+      return "";
+    }
+    return normalizeEdgeLabel(sortedChoices[sortedChoices.length - 1]?.body, "そう思わない");
+  }, [currentQuestion, sortedChoices]);
+
+  const selectedScaleIndex = useMemo(() => {
+    if (!currentQuestion || !isScaleQuestion(currentQuestion)) {
+      return null;
+    }
+
+    const choiceID = answers[currentQuestion.id];
+    if (!choiceID) {
+      return null;
+    }
+
+    const index = sortedChoices.findIndex((choice) => choice.id === choiceID);
+    return index >= 0 ? index : null;
+  }, [answers, currentQuestion, sortedChoices]);
 
   const onChoice = (questionId, choiceId) => {
     setAnswers((prev) => ({ ...prev, [questionId]: choiceId }));
@@ -183,21 +263,50 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
           {currentQuestion.prompt}
         </h2>
 
-        <div className="stack">
-          {currentQuestion.choices.map((choice) => {
-            const selected = answers[currentQuestion.id] === choice.id;
-            return (
-              <button
-                key={choice.id}
-                type="button"
-                className={`choice${selected ? " active" : ""}`}
-                onClick={() => onChoice(currentQuestion.id, choice.id)}
-              >
-                {choice.body}
-              </button>
-            );
-          })}
-        </div>
+        {isScaleQuestion(currentQuestion) ? (
+          <div className="scale-wrap">
+            <div className="scale-labels">
+              <span>{leftLabel}</span>
+              <span>{rightLabel}</span>
+            </div>
+
+            <div className="scale-points">
+              {sortedChoices.map((choice, index) => {
+                const selected = answers[currentQuestion.id] === choice.id;
+                return (
+                  <button
+                    key={choice.id}
+                    type="button"
+                    className={`scale-point${selected ? " active" : ""}`}
+                    style={{ width: bubbleSize(index), height: bubbleSize(index) }}
+                    onClick={() => onChoice(currentQuestion.id, choice.id)}
+                    aria-label={selectionLabel(index)}
+                  />
+                );
+              })}
+            </div>
+
+            <p className="subtle scale-selection">
+              {selectedScaleIndex == null ? "丸をタップして選択" : selectionLabel(selectedScaleIndex)}
+            </p>
+          </div>
+        ) : (
+          <div className="stack">
+            {currentQuestion.choices.map((choice) => {
+              const selected = answers[currentQuestion.id] === choice.id;
+              return (
+                <button
+                  key={choice.id}
+                  type="button"
+                  className={`choice${selected ? " active" : ""}`}
+                  onClick={() => onChoice(currentQuestion.id, choice.id)}
+                >
+                  {choice.body}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="row wrap">
           <button className="button secondary" onClick={onBack} disabled={currentIndex === 0 || isSubmitting}>
