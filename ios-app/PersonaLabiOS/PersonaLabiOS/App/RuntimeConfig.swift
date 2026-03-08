@@ -34,7 +34,7 @@ struct RuntimeConfig {
         let resolvedProjectRef = (projectRef?.isEmpty == false) ? projectRef! : defaultProjectRef
         let resolvedAnonKey = (anonKey?.isEmpty == false) ? anonKey! : defaultAnonKey
 
-        let appDomainString = env["APP_DOMAIN"] ?? "https://example.com"
+        let appDomainString = env["APP_DOMAIN"] ?? "https://persona-lab-platform.vercel.app"
         guard let appDomain = URL(string: appDomainString) else {
             return nil
         }

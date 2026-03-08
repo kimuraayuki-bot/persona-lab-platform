@@ -30,7 +30,7 @@ public enum ValidationError: Error, LocalizedError, Equatable {
         case .emptyChoiceText: return "選択肢文が空です。"
         case .invalidAxisDefinition: return "軸設定が不正です。"
         case .duplicatedAxisCode: return "同じ軸で左右の英字コードが重複しています。"
-        case .missingResultProfiles: return "16結果プロフィールが不足しています。"
+        case .missingResultProfiles: return "結果プロフィールが不足しています。"
         case .duplicatedResultProfile: return "結果コードが重複しています。"
         case .emptyResultProfileField: return "結果プロフィールの未入力項目があります。"
         case .answerCountMismatch: return "回答数が設問数と一致しません。"
@@ -81,6 +81,11 @@ public enum QuizValidator {
             throw ValidationError.invalidAxisDefinition
         }
 
+        let enabledAxes = normalizedAxes.filter(\.isEnabled)
+        if enabledAxes.isEmpty {
+            throw ValidationError.invalidAxisDefinition
+        }
+
         for axis in normalizedAxes {
             let positive = AxisDefinition.sanitizeCode(axis.positiveCode, fallback: "")
             let negative = AxisDefinition.sanitizeCode(axis.negativeCode, fallback: "")
@@ -94,7 +99,7 @@ public enum QuizValidator {
         }
 
         let expectedCodes = Set(ResultCodeEngine.allCodes(axisDefinitions: normalizedAxes).map { $0.uppercased() })
-        guard expectedCodes.count == 16 else {
+        guard !expectedCodes.isEmpty else {
             throw ValidationError.invalidAxisDefinition
         }
 

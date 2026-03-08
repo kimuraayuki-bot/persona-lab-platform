@@ -41,7 +41,7 @@ public enum SampleData {
         return Quiz(
             publicID: "demo-quiz",
             title: "デモ診断",
-            description: "16タイプ診断のサンプル",
+            description: "カスタム診断のサンプル",
             questions: [q1, q2, q3, q4]
         )
     }()

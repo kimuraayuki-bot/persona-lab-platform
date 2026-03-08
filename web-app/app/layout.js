@@ -2,7 +2,7 @@ import "./globals.css";
 
 export const metadata = {
   title: "Persona Lab",
-  description: "16タイプ診断をブラウザで回答"
+  description: "カスタム診断をブラウザで回答"
 };
 
 export default function RootLayout({ children }) {

@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
 
     const { data: axisRows, error: axisError } = await admin
       .from("quiz_axes")
-      .select("axis_key, order_index, positive_code, negative_code, positive_label, negative_label, tie_break")
+      .select("axis_key, order_index, is_enabled, positive_code, negative_code, positive_label, negative_label, tie_break")
       .eq("quiz_id", quiz.id)
       .order("order_index", { ascending: true });
 

@@ -35,6 +35,10 @@ struct ResultView: View {
         return QuizResultProfile.normalized([], axisDefinitions: AxisDefinition.defaultSet())
     }
 
+    private var axisDefinitionsForQuiz: [AxisDefinition] {
+        currentQuiz?.axisDefinitions ?? AxisDefinition.defaultSet()
+    }
+
     private var avatarImageData: Data? {
         imageStore.imageData(for: result.resultCode, quizPublicID: quizPublicID)
     }
@@ -47,6 +51,7 @@ struct ResultView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     ResultCardView(
                         result: result,
+                        axisDefinitions: axisDefinitionsForQuiz,
                         avatarImageData: avatarImageData
                     )
 
@@ -143,7 +148,11 @@ struct ResultView: View {
         guard let payload = await buildSharePayload() else { return }
         var items: [Any] = ["\(payload.message)\n\(payload.shareURL.absoluteString)"]
 
-        if let image = ResultCardRenderer.makeUIImage(result: result, avatarImageData: avatarImageData) {
+        if let image = ResultCardRenderer.makeUIImage(
+            result: result,
+            axisDefinitions: axisDefinitionsForQuiz,
+            avatarImageData: avatarImageData
+        ) {
             items.insert(image, at: 0)
         }
 

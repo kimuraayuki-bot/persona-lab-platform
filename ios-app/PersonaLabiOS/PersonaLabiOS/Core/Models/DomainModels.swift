@@ -103,6 +103,7 @@ public enum TieBreakSide: String, Codable, CaseIterable, Hashable {
 public struct AxisDefinition: Identifiable, Codable, Hashable {
     public var axisID: AxisID
     public var order: Int
+    public var isEnabled: Bool
     public var positiveCode: String
     public var negativeCode: String
     public var positiveLabel: String
@@ -114,6 +115,7 @@ public struct AxisDefinition: Identifiable, Codable, Hashable {
     public init(
         axisID: AxisID,
         order: Int,
+        isEnabled: Bool = true,
         positiveCode: String,
         negativeCode: String,
         positiveLabel: String,
@@ -122,6 +124,7 @@ public struct AxisDefinition: Identifiable, Codable, Hashable {
     ) {
         self.axisID = axisID
         self.order = order
+        self.isEnabled = isEnabled
         self.positiveCode = Self.sanitizeCode(positiveCode, fallback: axisID.defaultPositiveCode)
         self.negativeCode = Self.sanitizeCode(negativeCode, fallback: axisID.defaultNegativeCode)
         self.positiveLabel = positiveLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -137,6 +140,7 @@ public struct AxisDefinition: Identifiable, Codable, Hashable {
         AxisDefinition(
             axisID: axisID,
             order: AxisID.allCases.firstIndex(of: axisID) ?? 0,
+            isEnabled: true,
             positiveCode: axisID.defaultPositiveCode,
             negativeCode: axisID.defaultNegativeCode,
             positiveLabel: axisID.defaultPositiveLabel,
@@ -168,6 +172,12 @@ public struct AxisDefinition: Identifiable, Codable, Hashable {
             }
             return axisDefinition
         }
+    }
+
+    public static func enabled(_ axisDefinitions: [AxisDefinition]) -> [AxisDefinition] {
+        normalized(axisDefinitions)
+            .filter(\.isEnabled)
+            .sorted { $0.order < $1.order }
     }
 
     public static func sanitizeCode(_ code: String, fallback: String) -> String {
@@ -237,8 +247,7 @@ public struct QuizResultProfile: Identifiable, Codable, Hashable {
 
 public enum ResultCodeEngine {
     public static func orderedAxisDefinitions(_ axisDefinitions: [AxisDefinition]) -> [AxisDefinition] {
-        AxisDefinition.normalized(axisDefinitions)
-            .sorted { $0.order < $1.order }
+        AxisDefinition.enabled(axisDefinitions)
     }
 
     public static func allCodes(axisDefinitions: [AxisDefinition]) -> [String] {
@@ -260,6 +269,7 @@ public enum ResultCodeEngine {
 
     public static func decode(score: AxisScore, axisDefinitions: [AxisDefinition]) -> String {
         let ordered = orderedAxisDefinitions(axisDefinitions)
+        guard !ordered.isEmpty else { return "" }
         var code = ""
 
         for axis in ordered {

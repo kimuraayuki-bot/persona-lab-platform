@@ -11,6 +11,7 @@ export type TieBreak = "positive" | "negative";
 export type AxisDefinition = {
   axis_key: AxisKey;
   order_index: number;
+  is_enabled: boolean;
   positive_code: string;
   negative_code: string;
   positive_label?: string;
@@ -41,6 +42,7 @@ export function defaultAxisDefinitions(): AxisDefinition[] {
   return AXIS_ORDER.map((axisKey, index) => ({
     axis_key: axisKey,
     order_index: index,
+    is_enabled: true,
     positive_code: DEFAULT_CODE[axisKey].positive,
     negative_code: DEFAULT_CODE[axisKey].negative,
     positive_label: DEFAULT_CODE[axisKey].positive,
@@ -64,6 +66,7 @@ export function normalizeAxisDefinitions(input: AxisDefinition[] | null | undefi
     byAxis.set(axis.axis_key, {
       axis_key: axis.axis_key,
       order_index: typeof axis.order_index === "number" ? axis.order_index : AXIS_ORDER.indexOf(axis.axis_key),
+      is_enabled: axis.is_enabled !== false,
       positive_code: positiveCode,
       negative_code: negativeCode,
       positive_label: axis.positive_label?.trim() || positiveCode,
@@ -81,6 +84,7 @@ export function normalizeAxisDefinitions(input: AxisDefinition[] | null | undefi
     return {
       axis_key: axisKey,
       order_index: index,
+      is_enabled: true,
       positive_code: DEFAULT_CODE[axisKey].positive,
       negative_code: DEFAULT_CODE[axisKey].negative,
       positive_label: DEFAULT_CODE[axisKey].positive,
@@ -88,6 +92,10 @@ export function normalizeAxisDefinitions(input: AxisDefinition[] | null | undefi
       tie_break: "positive"
     };
   });
+}
+
+function enabledAxisDefinitions(axisDefinitions: AxisDefinition[]): AxisDefinition[] {
+  return normalizeAxisDefinitions(axisDefinitions).filter((axis) => axis.is_enabled);
 }
 
 function axisValue(axisKey: AxisKey, scores: AxisScores): number {
@@ -104,7 +112,10 @@ function axisValue(axisKey: AxisKey, scores: AxisScores): number {
 }
 
 export function decodeResultCode(scores: AxisScores, axisDefinitions: AxisDefinition[]): string {
-  const normalized = normalizeAxisDefinitions(axisDefinitions);
+  const normalized = enabledAxisDefinitions(axisDefinitions);
+  if (normalized.length === 0) {
+    return "";
+  }
   let resultCode = "";
 
   for (const axis of normalized) {
@@ -127,7 +138,10 @@ export function decodeResultCode(scores: AxisScores, axisDefinitions: AxisDefini
 }
 
 export function allResultCodes(axisDefinitions: AxisDefinition[]): string[] {
-  const normalized = normalizeAxisDefinitions(axisDefinitions);
+  const normalized = enabledAxisDefinitions(axisDefinitions);
+  if (normalized.length === 0) {
+    return [];
+  }
   let codes = [""];
 
   for (const axis of normalized) {

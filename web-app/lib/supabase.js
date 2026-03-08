@@ -1,5 +1,5 @@
 const QUIZ_SELECT =
-  "id,public_id,title,description,questions(id,prompt,order_index,choices(id,body,order_index)),axis_definitions:quiz_axes(axis_key,order_index,positive_code,negative_code,positive_label,negative_label,tie_break),result_profiles:quiz_result_profiles(result_code,role_name,summary,detail,image_url)";
+  "id,public_id,title,description,questions(id,prompt,order_index,choices(id,body,order_index)),axis_definitions:quiz_axes(axis_key,order_index,is_enabled,positive_code,negative_code,positive_label,negative_label,tie_break),result_profiles:quiz_result_profiles(result_code,role_name,summary,detail,image_url)";
 
 const AXIS_ORDER = ["ei", "sn", "tf", "jp"];
 const DEFAULT_AXIS_CODES = {
@@ -45,6 +45,7 @@ function normalizeAxisDefinitions(rawAxisDefinitions) {
     byKey.set(axis.axis_key, {
       axisKey: axis.axis_key,
       orderIndex: AXIS_ORDER.indexOf(axis.axis_key),
+      isEnabled: axis.is_enabled !== false,
       positiveCode,
       negativeCode,
       positiveLabel: axis.positive_label?.trim() || positiveCode,
@@ -63,6 +64,7 @@ function normalizeAxisDefinitions(rawAxisDefinitions) {
     return {
       axisKey,
       orderIndex,
+      isEnabled: true,
       positiveCode: defaults.positive,
       negativeCode: defaults.negative,
       positiveLabel: defaults.positive,
@@ -72,9 +74,18 @@ function normalizeAxisDefinitions(rawAxisDefinitions) {
   });
 }
 
+function enabledAxisDefinitions(axisDefinitions) {
+  return normalizeAxisDefinitions(axisDefinitions).filter((axis) => axis.isEnabled);
+}
+
 function allResultCodes(axisDefinitions) {
+  const enabledAxes = enabledAxisDefinitions(axisDefinitions);
+  if (enabledAxes.length === 0) {
+    return [];
+  }
+
   let codes = [""];
-  for (const axis of axisDefinitions) {
+  for (const axis of enabledAxes) {
     const next = [];
     for (const prefix of codes) {
       next.push(prefix + axis.positiveCode);

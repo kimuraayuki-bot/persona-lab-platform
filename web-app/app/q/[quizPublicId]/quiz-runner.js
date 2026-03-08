@@ -219,7 +219,7 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
           {resultDetail ? <p className="subtle">{resultDetail}</p> : null}
 
           <div className="axes">
-            {(quiz.axisDefinitions ?? []).map((axis) => (
+            {(quiz.axisDefinitions ?? []).filter((axis) => axis.isEnabled !== false).map((axis) => (
               <div className="axis" key={axis.axisKey}>
                 <div className="k">{`${axis.positiveCode}/${axis.negativeCode}`}</div>
                 <div className="v">{axisValue(axis.axisKey, result.axis_scores)}</div>

@@ -8,7 +8,13 @@ import AppKit
 
 struct ResultCardView: View {
     let result: DiagnosisResult
+    var axisDefinitions: [AxisDefinition] = AxisDefinition.defaultSet()
     var avatarImageData: Data?
+
+    private var displayedAxes: [AxisDefinition] {
+        let enabledAxes = AxisDefinition.enabled(axisDefinitions)
+        return enabledAxes.isEmpty ? AxisDefinition.defaultSet() : enabledAxes
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -42,10 +48,9 @@ struct ResultCardView: View {
                 .overlay(Color.white.opacity(0.4))
 
             HStack(spacing: 12) {
-                axisPill(label: "EI", value: result.axisScore.ei)
-                axisPill(label: "SN", value: result.axisScore.sn)
-                axisPill(label: "TF", value: result.axisScore.tf)
-                axisPill(label: "JP", value: result.axisScore.jp)
+                ForEach(displayedAxes, id: \.axisID) { axis in
+                    axisPill(label: "\(axis.positiveCode)/\(axis.negativeCode)", value: axis.axisID.value(from: result.axisScore))
+                }
             }
         }
         .padding(20)
@@ -130,8 +135,20 @@ struct ResultCardView: View {
 
 @MainActor
 enum ResultCardRenderer {
-    static func makeImage(result: DiagnosisResult, avatarImageData: Data? = nil, scale: CGFloat = 2.0) -> Image? {
-        let renderer = ImageRenderer(content: ResultCardView(result: result, avatarImageData: avatarImageData).frame(width: 360, height: 280))
+    static func makeImage(
+        result: DiagnosisResult,
+        axisDefinitions: [AxisDefinition] = [],
+        avatarImageData: Data? = nil,
+        scale: CGFloat = 2.0
+    ) -> Image? {
+        let renderer = ImageRenderer(
+            content: ResultCardView(
+                result: result,
+                axisDefinitions: axisDefinitions,
+                avatarImageData: avatarImageData
+            )
+            .frame(width: 360, height: 280)
+        )
         renderer.scale = scale
 
 #if canImport(UIKit)
@@ -142,9 +159,21 @@ enum ResultCardRenderer {
 #endif
     }
 
-    static func makeUIImage(result: DiagnosisResult, avatarImageData: Data? = nil, scale: CGFloat = 2.0) -> Any? {
+    static func makeUIImage(
+        result: DiagnosisResult,
+        axisDefinitions: [AxisDefinition] = [],
+        avatarImageData: Data? = nil,
+        scale: CGFloat = 2.0
+    ) -> Any? {
 #if canImport(UIKit)
-        let renderer = ImageRenderer(content: ResultCardView(result: result, avatarImageData: avatarImageData).frame(width: 360, height: 280))
+        let renderer = ImageRenderer(
+            content: ResultCardView(
+                result: result,
+                axisDefinitions: axisDefinitions,
+                avatarImageData: avatarImageData
+            )
+            .frame(width: 360, height: 280)
+        )
         renderer.scale = scale
         return renderer.uiImage
 #else

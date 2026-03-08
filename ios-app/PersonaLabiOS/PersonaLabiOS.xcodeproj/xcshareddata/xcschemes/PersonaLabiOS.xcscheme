@@ -53,7 +53,7 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "SKIP_LOGIN_FOR_DEV"
-            value = "true"
+            value = "false"
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
@@ -68,7 +68,7 @@
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "APP_DOMAIN"
-            value = "https://example.com"
+            value = "https://persona-lab-platform.vercel.app"
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable

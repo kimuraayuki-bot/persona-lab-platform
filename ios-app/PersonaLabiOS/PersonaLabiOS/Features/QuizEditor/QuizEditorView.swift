@@ -38,15 +38,28 @@ struct QuizEditorView: View {
         AxisDefinition.normalized(axisDefinitions)
     }
 
+    private var activeAxisDefinitions: [AxisDefinition] {
+        normalizedAxisDefinitions.filter(\.isEnabled)
+    }
+
+    private var activeAxisIDs: [AxisID] {
+        activeAxisDefinitions.map(\.axisID)
+    }
+
     private var activeResultProfiles: [QuizResultProfile] {
         QuizResultProfile
             .normalized(resultProfiles, axisDefinitions: normalizedAxisDefinitions)
             .sorted(by: { $0.resultCode < $1.resultCode })
     }
 
+    private var resultPatternCount: Int {
+        activeResultProfiles.count
+    }
+
     private var canSave: Bool {
         let titleValue = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !titleValue.isEmpty else { return false }
+        guard !activeAxisIDs.isEmpty else { return false }
         guard questions.count >= QuizValidator.minQuestions else { return false }
 
         for question in questions {
@@ -57,6 +70,9 @@ struct QuizEditorView: View {
                 return false
             }
             if question.disagreeText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return false
+            }
+            if !activeAxisIDs.contains(question.axis) {
                 return false
             }
         }
@@ -78,22 +94,6 @@ struct QuizEditorView: View {
         return true
     }
 
-    private var guidanceText: String {
-        if canSave {
-            return "入力OK。保存して共有リンク作成へ進めます。"
-        }
-
-        if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "タイトルを入力してください。"
-        }
-
-        if questions.count < QuizValidator.minQuestions {
-            return "設問は最低\(QuizValidator.minQuestions)問必要です。"
-        }
-
-        return "未入力の項目があります。"
-    }
-
     private var configuredImageCount: Int {
         activeResultProfiles.filter { imageStore.hasCustomImage(for: $0.resultCode, quizPublicID: draftPublicID) }.count
     }
@@ -108,12 +108,11 @@ struct QuizEditorView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    basicInfoSection
+                    headerSection
                     axisSettingsSection
-                    guidanceSection
+                    questionsSection
                     resultProfileSection
                     resultImageSection
-                    questionsSection
                 }
                 .padding(16)
             }
@@ -161,13 +160,21 @@ struct QuizEditorView: View {
         } message: {
             Text("この設問が削除されます。")
         }
+        .onAppear {
+            normalizeQuestionsForEnabledAxes()
+            syncResultProfiles()
+        }
     }
 
-    private var basicInfoSection: some View {
+    private var headerSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("基本情報")
-                .font(.headline)
+            Text(editingQuiz == nil ? "新しい診断を作る" : "診断内容を編集")
+                .font(.title2.bold())
                 .foregroundStyle(PopTheme.textPrimary)
+
+            Text("最初に使う英文字を決めて、次に設問、最後に診断結果を整えます。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
 
             TextField("タイトル（必須）", text: $title)
                 .textFieldStyle(.roundedBorder)
@@ -176,16 +183,22 @@ struct QuizEditorView: View {
                 .lineLimit(2...4)
                 .textFieldStyle(.roundedBorder)
         }
-        .popCard(cornerRadius: 18)
     }
 
     private var axisSettingsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("判定軸の英字設定")
+            Text("使う英文字")
                 .font(.headline)
                 .foregroundStyle(PopTheme.textPrimary)
 
-            Text("各軸で左側/右側の英字コードを設定できます（例: E / I）。同点時にどちらを使うか選択できます。")
+            HStack(spacing: 12) {
+                Label("\(activeAxisDefinitions.count)軸を使用", systemImage: "slider.horizontal.3")
+                Label("\(resultPatternCount)タイプ", systemImage: "person.3.sequence.fill")
+            }
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(PopTheme.accentAlt)
+
+            Text("使う軸だけONにすると、用意する結果タイプ数を減らせます。各軸で左右の英字コードと同点時ルールを決めてください。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
@@ -195,7 +208,13 @@ struct QuizEditorView: View {
                         Text(axis.axisID.rawValue.uppercased())
                             .font(.subheadline.bold())
                         Spacer()
+                        Text(axis.isEnabled ? "使用中" : "未使用")
+                            .font(.caption.bold())
+                            .foregroundStyle(axis.isEnabled ? PopTheme.accentAlt : .secondary)
                     }
+
+                    Toggle("この軸を診断に使う", isOn: enabledBinding(axis.axisID))
+                        .disabled(axis.isEnabled && activeAxisDefinitions.count == 1)
 
                     HStack(spacing: 8) {
                         TextField("左コード", text: positiveCodeBinding(axis.axisID))
@@ -210,6 +229,10 @@ struct QuizEditorView: View {
                         Text("同点時は右を使う").tag(TieBreakSide.negative)
                     }
                     .pickerStyle(.segmented)
+
+                    Text("結果コード例: \(axis.positiveCode) / \(axis.negativeCode)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(12)
                 .background(Color.white.opacity(0.75), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -218,33 +241,13 @@ struct QuizEditorView: View {
         .popCard(cornerRadius: 18)
     }
 
-    private var guidanceSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("入力ガイド")
-                .font(.headline)
-                .foregroundStyle(PopTheme.textPrimary)
-
-            Label("\(questions.count)問 / 最低\(QuizValidator.minQuestions)問", systemImage: "list.number")
-                .font(.subheadline)
-
-            Text("回答UIは『左ラベル ○○○○○○○ 右ラベル』の7段階で固定です。")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
-            Text(guidanceText)
-                .font(.footnote)
-                .foregroundStyle(canSave ? .green : .orange)
-        }
-        .popCard(cornerRadius: 18)
-    }
-
     private var resultProfileSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("結果プロフィール（16パターン）")
+            Text("診断結果（\(resultPatternCount)パターン）")
                 .font(.headline)
                 .foregroundStyle(PopTheme.textPrimary)
 
-            Text("英字コードの組み合わせごとに、役割名・要約・詳細を設定できます。")
+            Text("有効な英字の組み合わせごとに、役割名・要約・詳細を設定できます。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
@@ -303,13 +306,20 @@ struct QuizEditorView: View {
                 .font(.headline)
                 .foregroundStyle(PopTheme.textPrimary)
 
+            Label("\(questions.count)問 / 最低\(QuizValidator.minQuestions)問", systemImage: "list.number")
+                .font(.subheadline)
+
+            Text("回答UIは『左ラベル ○○○○○○○ 右ラベル』の7段階で固定です。設問ごとに、どの英字軸へ効かせるかを選べます。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
             ForEach(questionIDs, id: \.self) { questionID in
                 questionCard(questionID: questionID)
             }
 
             Button {
                 guard questions.count < QuizValidator.maxQuestions else { return }
-                questions.append(.sample(index: questions.count))
+                questions.append(makeQuestionDraft(index: questions.count))
             } label: {
                 Label("設問を追加", systemImage: "plus")
                     .frame(maxWidth: .infinity)
@@ -356,7 +366,7 @@ struct QuizEditorView: View {
             }
 
             Picker("判定軸", selection: questionAxisBinding(questionID)) {
-                ForEach(normalizedAxisDefinitions, id: \.axisID) { item in
+                ForEach(activeAxisDefinitions, id: \.axisID) { item in
                     Text("\(item.positiveCode) / \(item.negativeCode)").tag(item.axisID)
                 }
             }
@@ -425,6 +435,11 @@ struct QuizEditorView: View {
         axisDefinitions.firstIndex(where: { $0.axisID == axisID })
     }
 
+    private func fallbackAxisID(for index: Int = 0) -> AxisID {
+        let pool = activeAxisIDs.isEmpty ? AxisID.allCases : activeAxisIDs
+        return pool[index % pool.count]
+    }
+
     private func questionPromptBinding(_ questionID: UUID) -> Binding<String> {
         Binding(
             get: {
@@ -467,8 +482,9 @@ struct QuizEditorView: View {
     private func questionAxisBinding(_ questionID: UUID) -> Binding<AxisID> {
         Binding(
             get: {
-                guard let qIndex = questionIndex(questionID) else { return .ei }
-                return questions[qIndex].axis
+                guard let qIndex = questionIndex(questionID) else { return fallbackAxisID() }
+                let axis = questions[qIndex].axis
+                return activeAxisIDs.contains(axis) ? axis : fallbackAxisID()
             },
             set: { newValue in
                 guard let qIndex = questionIndex(questionID) else { return }
@@ -486,6 +502,18 @@ struct QuizEditorView: View {
             set: { newValue in
                 guard let qIndex = questionIndex(questionID) else { return }
                 questions[qIndex].agreeMapsToPositive = newValue
+            }
+        )
+    }
+
+    private func enabledBinding(_ axisID: AxisID) -> Binding<Bool> {
+        Binding(
+            get: {
+                guard let index = axisIndex(axisID) else { return true }
+                return axisDefinitions[index].isEnabled
+            },
+            set: { newValue in
+                updateAxisEnabled(axisID, isEnabled: newValue)
             }
         )
     }
@@ -582,12 +610,13 @@ struct QuizEditorView: View {
     }
 
     private func questionAxis(_ questionID: UUID) -> AxisID {
-        guard let qIndex = questionIndex(questionID) else { return .ei }
-        return questions[qIndex].axis
+        guard let qIndex = questionIndex(questionID) else { return fallbackAxisID() }
+        let axis = questions[qIndex].axis
+        return activeAxisIDs.contains(axis) ? axis : fallbackAxisID()
     }
 
     private func axisDefinition(for axisID: AxisID) -> AxisDefinition {
-        normalizedAxisDefinitions.first(where: { $0.axisID == axisID }) ?? .default(for: axisID)
+        normalizedAxisDefinitions.first(where: { $0.axisID == axisID }) ?? .default(for: fallbackAxisID())
     }
 
     private func questionAgreeMapsToPositive(_ questionID: UUID) -> Bool {
@@ -605,7 +634,39 @@ struct QuizEditorView: View {
         return questions[qIndex].disagreeText
     }
 
+    private func updateAxisEnabled(_ axisID: AxisID, isEnabled: Bool) {
+        guard let index = axisIndex(axisID) else { return }
+        let currentlyEnabled = axisDefinitions[index].isEnabled
+
+        if currentlyEnabled == isEnabled {
+            return
+        }
+
+        if !isEnabled && activeAxisDefinitions.count <= 1 {
+            return
+        }
+
+        axisDefinitions[index].isEnabled = isEnabled
+        normalizeQuestionsForEnabledAxes()
+        syncResultProfiles()
+    }
+
+    private func normalizeQuestionsForEnabledAxes() {
+        let validAxes = Set(activeAxisIDs)
+        let fallback = fallbackAxisID()
+
+        for index in questions.indices where !validAxes.contains(questions[index].axis) {
+            questions[index].axis = fallback
+        }
+    }
+
+    private func makeQuestionDraft(index: Int) -> QuestionDraft {
+        QuestionDraft.sample(index: index, axisPool: activeAxisIDs)
+    }
+
     private func saveQuiz() {
+        normalizeQuestionsForEnabledAxes()
+
         let mappedQuestions = questions.enumerated().map { index, q in
             let choices = scaleValues.enumerated().map { choiceIndex, value in
                 let signedValue = q.agreeMapsToPositive ? value : -value
@@ -691,8 +752,9 @@ struct QuestionDraft: Identifiable {
     var axis: AxisID
     var agreeMapsToPositive: Bool
 
-    static func sample(index: Int) -> QuestionDraft {
-        let defaultAxis = AxisID.allCases[index % AxisID.allCases.count]
+    static func sample(index: Int, axisPool: [AxisID] = AxisID.allCases) -> QuestionDraft {
+        let pool = axisPool.isEmpty ? AxisID.allCases : axisPool
+        let defaultAxis = pool[index % pool.count]
         return QuestionDraft(
             prompt: "質問\(index + 1)",
             agreeText: "そう思う",

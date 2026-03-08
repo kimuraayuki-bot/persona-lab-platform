@@ -231,7 +231,7 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
     }
 
     private var selectColumns: String {
-        "id,public_id,creator_id,title,description,visibility,created_at,questions(id,prompt,order_index,choices(id,body,order_index,ei_delta,sn_delta,tf_delta,jp_delta)),axis_definitions:quiz_axes(axis_key,order_index,positive_code,negative_code,positive_label,negative_label,tie_break),result_profiles:quiz_result_profiles(result_code,role_name,summary,detail,image_url)"
+        "id,public_id,creator_id,title,description,visibility,created_at,questions(id,prompt,order_index,choices(id,body,order_index,ei_delta,sn_delta,tf_delta,jp_delta)),axis_definitions:quiz_axes(axis_key,order_index,is_enabled,positive_code,negative_code,positive_label,negative_label,tie_break),result_profiles:quiz_result_profiles(result_code,role_name,summary,detail,image_url)"
     }
 
     private func replaceQuestions(
@@ -319,6 +319,7 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
                 quizID: quizID,
                 axisKey: $0.axisID.rawValue,
                 orderIndex: $0.order,
+                isEnabled: $0.isEnabled,
                 positiveCode: $0.positiveCode,
                 negativeCode: $0.negativeCode,
                 positiveLabel: $0.positiveLabel,
@@ -526,6 +527,7 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
             return AxisDefinition(
                 axisID: axisID,
                 order: row.orderIndex,
+                isEnabled: row.isEnabled,
                 positiveCode: row.positiveCode,
                 negativeCode: row.negativeCode,
                 positiveLabel: row.positiveLabel,
@@ -602,6 +604,7 @@ private struct CreateAxisDefinitionRow: Codable {
     let quizID: UUID
     let axisKey: String
     let orderIndex: Int
+    let isEnabled: Bool
     let positiveCode: String
     let negativeCode: String
     let positiveLabel: String
@@ -612,6 +615,7 @@ private struct CreateAxisDefinitionRow: Codable {
         case quizID = "quiz_id"
         case axisKey = "axis_key"
         case orderIndex = "order_index"
+        case isEnabled = "is_enabled"
         case positiveCode = "positive_code"
         case negativeCode = "negative_code"
         case positiveLabel = "positive_label"
@@ -701,6 +705,7 @@ private struct ChoiceRow: Codable {
 private struct AxisDefinitionRow: Codable {
     let axisKey: String
     let orderIndex: Int
+    let isEnabled: Bool
     let positiveCode: String
     let negativeCode: String
     let positiveLabel: String
@@ -710,6 +715,7 @@ private struct AxisDefinitionRow: Codable {
     enum CodingKeys: String, CodingKey {
         case axisKey = "axis_key"
         case orderIndex = "order_index"
+        case isEnabled = "is_enabled"
         case positiveCode = "positive_code"
         case negativeCode = "negative_code"
         case positiveLabel = "positive_label"
