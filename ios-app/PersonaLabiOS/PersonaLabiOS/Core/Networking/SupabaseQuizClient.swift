@@ -248,7 +248,7 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
     }
 
     private var selectColumns: String {
-        "id,public_id,creator_id,title,description,visibility,created_at,questions(id,prompt,order_index,choices(id,body,order_index,ei_delta,sn_delta,tf_delta,jp_delta)),axis_definitions:quiz_axes(axis_key,order_index,is_enabled,positive_code,negative_code,positive_label,negative_label,tie_break),result_profiles:quiz_result_profiles(result_code,role_name,summary,detail,image_url)"
+        "id,public_id,creator_id,title,description,visibility,created_at,questions(id,prompt,order_index,choices:choices!choices_question_id_fkey(id,body,order_index,ei_delta,sn_delta,tf_delta,jp_delta)),axis_definitions:quiz_axes(axis_key,order_index,is_enabled,positive_code,negative_code,positive_label,negative_label,tie_break),result_profiles:quiz_result_profiles(result_code,role_name,summary,detail,image_url)"
     }
 
     private func replaceQuestions(

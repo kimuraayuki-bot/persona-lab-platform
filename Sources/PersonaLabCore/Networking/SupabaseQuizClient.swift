@@ -129,7 +129,7 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
     }
 
     public func listCreatorQuizzes(creatorID: UUID, accessToken: String) async throws -> [Quiz] {
-        let select = "id,public_id,creator_id,title,description,visibility,created_at,questions(id,prompt,order_index,choices(id,body,order_index,ei_delta,sn_delta,tf_delta,jp_delta))"
+        let select = "id,public_id,creator_id,title,description,visibility,created_at,questions(id,prompt,order_index,choices:choices!choices_question_id_fkey(id,body,order_index,ei_delta,sn_delta,tf_delta,jp_delta))"
         let queryItems = [
             URLQueryItem(name: "select", value: select),
             URLQueryItem(name: "creator_id", value: "eq.\(creatorID.uuidString.lowercased())"),
@@ -149,7 +149,7 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
     }
 
     public func fetchQuiz(publicID: String) async throws -> Quiz? {
-        let select = "id,public_id,creator_id,title,description,visibility,created_at,questions(id,prompt,order_index,choices(id,body,order_index,ei_delta,sn_delta,tf_delta,jp_delta))"
+        let select = "id,public_id,creator_id,title,description,visibility,created_at,questions(id,prompt,order_index,choices:choices!choices_question_id_fkey(id,body,order_index,ei_delta,sn_delta,tf_delta,jp_delta))"
         let queryItems = [
             URLQueryItem(name: "select", value: select),
             URLQueryItem(name: "public_id", value: "eq.\(publicID)"),

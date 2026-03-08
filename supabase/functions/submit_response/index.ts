@@ -122,35 +122,17 @@ Deno.serve(async (req) => {
     const axisDefinitions = normalizeAxisDefinitions((axisRows ?? []) as AxisDefinition[]);
     const resultCode = decodeResultCode({ ei, sn, tf, jp }, axisDefinitions);
 
-    const { data: response, error: responseError } = await admin
-      .from("responses")
-      .insert({
-        quiz_id: quiz.id,
-        share_link_id: shareLink.id,
-        mbti_type: resultCode,
-        axis_ei: ei,
-        axis_sn: sn,
-        axis_tf: tf,
-        axis_jp: jp,
-        fingerprint,
-      })
-      .select("id")
-      .single();
+    const { error: statsError } = await admin.rpc("record_quiz_aggregate_response", {
+      p_quiz_id: quiz.id,
+      p_result_code: resultCode,
+      p_answers: answers,
+    });
 
-    if (responseError || !response) {
-      return json({ error: responseError?.message ?? "failed to save response" }, 500);
+    if (statsError) {
+      return json({ error: statsError.message }, 500);
     }
 
-    const answerRows = answers.map((a) => ({
-      response_id: response.id,
-      question_id: a.question_id,
-      choice_id: a.choice_id,
-    }));
-
-    const { error: answerError } = await admin.from("response_answers").insert(answerRows);
-    if (answerError) {
-      return json({ error: answerError.message }, 500);
-    }
+    const syntheticResultID = crypto.randomUUID();
 
     const { data: resultProfile } = await admin
       .from("quiz_result_profiles")
@@ -161,7 +143,7 @@ Deno.serve(async (req) => {
 
     return json(
       {
-        result_id: response.id,
+        result_id: syntheticResultID,
         result_code: resultCode,
         mbti_type: resultCode,
         axis_scores: { ei, sn, tf, jp },

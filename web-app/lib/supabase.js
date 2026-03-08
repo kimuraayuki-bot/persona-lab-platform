@@ -1,5 +1,5 @@
 const QUIZ_SELECT =
-  "id,public_id,title,description,questions(id,prompt,order_index,choices(id,body,order_index)),axis_definitions:quiz_axes(axis_key,order_index,is_enabled,positive_code,negative_code,positive_label,negative_label,tie_break),result_profiles:quiz_result_profiles(result_code,role_name,summary,detail,image_url)";
+  "id,public_id,title,description,questions(id,prompt,order_index,choices:choices!choices_question_id_fkey(id,body,order_index)),axis_definitions:quiz_axes(axis_key,order_index,is_enabled,positive_code,negative_code,positive_label,negative_label,tie_break),result_profiles:quiz_result_profiles(result_code,role_name,summary,detail,image_url)";
 
 const AXIS_ORDER = ["ei", "sn", "tf", "jp"];
 const DEFAULT_AXIS_CODES = {

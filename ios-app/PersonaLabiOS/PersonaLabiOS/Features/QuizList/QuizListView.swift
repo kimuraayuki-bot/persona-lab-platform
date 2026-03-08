@@ -168,7 +168,26 @@ struct QuizListView: View {
                 Text(quiz.title)
                     .font(.headline)
                     .foregroundStyle(PopTheme.textPrimary)
+                    .lineLimit(2)
                 Spacer()
+
+                Menu {
+                    Button(role: .destructive) {
+                        pendingDeleteQuiz = quiz
+                    } label: {
+                        Label("この診断を削除", systemImage: "trash")
+                    }
+                } label: {
+                    if isDeleting {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(isDeleting)
             }
 
             Text(quiz.description.isEmpty ? "説明未設定" : quiz.description)
@@ -184,40 +203,43 @@ struct QuizListView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
 
-            HStack(spacing: 8) {
-                Button {
-                    state.activeQuiz = quiz
-                } label: {
-                    Label("回答", systemImage: "play.fill")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isDeleting)
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Button {
+                        state.activeQuiz = quiz
+                    } label: {
+                        Label("回答", systemImage: "play.fill")
+                            .frame(maxWidth: .infinity)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isDeleting)
 
-                Button {
-                    editingQuiz = quiz
-                    showingEditor = true
-                } label: {
-                    Label("編集", systemImage: "pencil")
+                    Button {
+                        editingQuiz = quiz
+                        showingEditor = true
+                    } label: {
+                        Label("編集", systemImage: "pencil")
+                            .frame(maxWidth: .infinity)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isDeleting)
                 }
-                .buttonStyle(.bordered)
-                .disabled(isDeleting)
 
                 Button {
                     Task { await prepareShare(for: quiz) }
                 } label: {
-                    Label(isSharing ? "発行中" : "リンク発行", systemImage: isSharing ? "arrow.triangle.2.circlepath" : "link.badge.plus")
+                    Label(isSharing ? "共有リンクを発行中" : "共有リンクを発行", systemImage: isSharing ? "arrow.triangle.2.circlepath" : "link.badge.plus")
+                        .frame(maxWidth: .infinity)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.9)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(PopTheme.accent)
                 .disabled(isSharing || isDeleting)
-
-                Button(role: .destructive) {
-                    pendingDeleteQuiz = quiz
-                } label: {
-                    Label(isDeleting ? "削除中" : "削除", systemImage: "trash")
-                }
-                .buttonStyle(.bordered)
-                .disabled(isDeleting)
             }
         }
         .popCard(cornerRadius: 18)

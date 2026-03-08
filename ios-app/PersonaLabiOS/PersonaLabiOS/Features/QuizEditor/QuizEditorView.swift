@@ -205,8 +205,6 @@ struct QuizEditorView: View {
             ForEach(normalizedAxisDefinitions, id: \.axisID) { axis in
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text(axis.axisID.rawValue.uppercased())
-                            .font(.subheadline.bold())
                         Spacer()
                         Text(axis.isEnabled ? "使用中" : "未使用")
                             .font(.caption.bold())
