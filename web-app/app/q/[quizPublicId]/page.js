@@ -9,7 +9,10 @@ export default async function QuizAnswerPage({ params, searchParams }) {
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
   const quizPublicId = resolvedParams?.quizPublicId;
-  const token = typeof resolvedSearchParams?.token === "string" ? resolvedSearchParams.token : "";
+  const tokenFromObject = typeof resolvedSearchParams?.token === "string" ? resolvedSearchParams.token : "";
+  const tokenFromURLSearchParams =
+    typeof resolvedSearchParams?.get === "function" ? resolvedSearchParams.get("token") ?? "" : "";
+  const token = tokenFromObject || tokenFromURLSearchParams;
 
   if (!token) {
     return (
