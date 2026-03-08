@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { decodeMbti } from "../_shared/mbti.ts";
+import { decodeResultCode, normalizeAxisDefinitions, type AxisDefinition } from "../_shared/mbti.ts";
 
 const RATE_LIMIT_COUNT = 20;
 const RATE_LIMIT_WINDOW_MS = 1000 * 60 * 10;
@@ -109,14 +109,25 @@ Deno.serve(async (req) => {
       jp += Number(choice.jp_delta ?? 0);
     }
 
-    const mbti = decodeMbti({ ei, sn, tf, jp });
+    const { data: axisRows, error: axisError } = await admin
+      .from("quiz_axes")
+      .select("axis_key, order_index, positive_code, negative_code, positive_label, negative_label, tie_break")
+      .eq("quiz_id", quiz.id)
+      .order("order_index", { ascending: true });
+
+    if (axisError) {
+      return json({ error: axisError.message }, 500);
+    }
+
+    const axisDefinitions = normalizeAxisDefinitions((axisRows ?? []) as AxisDefinition[]);
+    const resultCode = decodeResultCode({ ei, sn, tf, jp }, axisDefinitions);
 
     const { data: response, error: responseError } = await admin
       .from("responses")
       .insert({
         quiz_id: quiz.id,
         share_link_id: shareLink.id,
-        mbti_type: mbti,
+        mbti_type: resultCode,
         axis_ei: ei,
         axis_sn: sn,
         axis_tf: tf,
@@ -141,11 +152,22 @@ Deno.serve(async (req) => {
       return json({ error: answerError.message }, 500);
     }
 
+    const { data: resultProfile } = await admin
+      .from("quiz_result_profiles")
+      .select("result_code, role_name, summary, detail")
+      .eq("quiz_id", quiz.id)
+      .eq("result_code", resultCode)
+      .maybeSingle();
+
     return json(
       {
         result_id: response.id,
-        mbti_type: mbti,
+        result_code: resultCode,
+        mbti_type: resultCode,
         axis_scores: { ei, sn, tf, jp },
+        role_name: resultProfile?.role_name ?? `${resultCode}タイプ`,
+        summary: resultProfile?.summary ?? `${resultCode} の傾向を示す結果です。`,
+        detail: resultProfile?.detail ?? "",
       },
       200,
     );

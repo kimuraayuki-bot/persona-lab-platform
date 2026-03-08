@@ -1,5 +1,13 @@
 const QUIZ_SELECT =
-  "id,public_id,title,description,questions(id,prompt,order_index,choices(id,body,order_index))";
+  "id,public_id,title,description,questions(id,prompt,order_index,choices(id,body,order_index)),axis_definitions:quiz_axes(axis_key,order_index,positive_code,negative_code,positive_label,negative_label,tie_break),result_profiles:quiz_result_profiles(result_code,role_name,summary,detail,image_url)";
+
+const AXIS_ORDER = ["ei", "sn", "tf", "jp"];
+const DEFAULT_AXIS_CODES = {
+  ei: { positive: "E", negative: "I" },
+  sn: { positive: "S", negative: "N" },
+  tf: { positive: "T", negative: "F" },
+  jp: { positive: "J", negative: "P" }
+};
 
 function getConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,7 +20,108 @@ function getConfig() {
   return { url, anonKey };
 }
 
+function sanitizeCode(value, fallback) {
+  const normalized = (value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 4);
+
+  return normalized.length > 0 ? normalized : fallback;
+}
+
+function normalizeAxisDefinitions(rawAxisDefinitions) {
+  const byKey = new Map();
+
+  for (const axis of rawAxisDefinitions ?? []) {
+    if (!AXIS_ORDER.includes(axis.axis_key)) {
+      continue;
+    }
+
+    const defaults = DEFAULT_AXIS_CODES[axis.axis_key];
+    const positiveCode = sanitizeCode(axis.positive_code, defaults.positive);
+    const negativeCode = sanitizeCode(axis.negative_code, defaults.negative);
+
+    byKey.set(axis.axis_key, {
+      axisKey: axis.axis_key,
+      orderIndex: AXIS_ORDER.indexOf(axis.axis_key),
+      positiveCode,
+      negativeCode,
+      positiveLabel: axis.positive_label?.trim() || positiveCode,
+      negativeLabel: axis.negative_label?.trim() || negativeCode,
+      tieBreak: axis.tie_break === "negative" ? "negative" : "positive"
+    });
+  }
+
+  return AXIS_ORDER.map((axisKey, orderIndex) => {
+    const existing = byKey.get(axisKey);
+    if (existing) {
+      return { ...existing, orderIndex };
+    }
+
+    const defaults = DEFAULT_AXIS_CODES[axisKey];
+    return {
+      axisKey,
+      orderIndex,
+      positiveCode: defaults.positive,
+      negativeCode: defaults.negative,
+      positiveLabel: defaults.positive,
+      negativeLabel: defaults.negative,
+      tieBreak: "positive"
+    };
+  });
+}
+
+function allResultCodes(axisDefinitions) {
+  let codes = [""];
+  for (const axis of axisDefinitions) {
+    const next = [];
+    for (const prefix of codes) {
+      next.push(prefix + axis.positiveCode);
+      next.push(prefix + axis.negativeCode);
+    }
+    codes = next;
+  }
+  return codes;
+}
+
+function normalizeResultProfiles(rawResultProfiles, axisDefinitions) {
+  const byCode = new Map();
+
+  for (const profile of rawResultProfiles ?? []) {
+    const resultCode = (profile.result_code ?? "").toUpperCase();
+    if (!resultCode) {
+      continue;
+    }
+
+    byCode.set(resultCode, {
+      resultCode,
+      roleName: profile.role_name ?? `${resultCode}タイプ`,
+      summary: profile.summary ?? `${resultCode} の傾向を示す結果です。`,
+      detail: profile.detail ?? "",
+      imageURL: profile.image_url ?? null
+    });
+  }
+
+  return allResultCodes(axisDefinitions).map((code) => {
+    if (byCode.has(code)) {
+      return byCode.get(code);
+    }
+
+    return {
+      resultCode: code,
+      roleName: `${code}タイプ`,
+      summary: `${code} の傾向を示す結果です。`,
+      detail: "",
+      imageURL: null
+    };
+  });
+}
+
 function normalizeQuiz(raw) {
+  const axisDefinitions = normalizeAxisDefinitions(raw.axis_definitions ?? []);
+  const resultProfiles = normalizeResultProfiles(raw.result_profiles ?? [], axisDefinitions);
+
   const questions = (raw.questions ?? [])
     .slice()
     .sort((a, b) => a.order_index - b.order_index)
@@ -35,6 +144,8 @@ function normalizeQuiz(raw) {
     publicId: raw.public_id,
     title: raw.title,
     description: raw.description ?? "",
+    axisDefinitions,
+    resultProfiles,
     questions
   };
 }

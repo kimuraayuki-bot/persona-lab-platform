@@ -37,14 +37,30 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
     }
 
     public func createQuiz(quiz: Quiz, creatorID: UUID, accessToken: String) async throws -> Quiz {
-        try QuizValidator.validate(quiz: quiz)
+        let normalizedAxisDefinitions = AxisDefinition.normalized(quiz.axisDefinitions)
+        let normalizedResultProfiles = QuizResultProfile.normalized(quiz.resultProfiles, axisDefinitions: normalizedAxisDefinitions)
 
-        let createQuizRow = CreateQuizRow(
+        let normalizedQuiz = Quiz(
+            id: quiz.id,
             publicID: quiz.publicID,
-            creatorID: creatorID,
+            creatorID: quiz.creatorID,
             title: quiz.title,
             description: quiz.description,
-            visibility: quiz.visibility.rawValue
+            visibility: quiz.visibility,
+            questions: quiz.questions,
+            axisDefinitions: normalizedAxisDefinitions,
+            resultProfiles: normalizedResultProfiles,
+            createdAt: quiz.createdAt
+        )
+
+        try QuizValidator.validate(quiz: normalizedQuiz)
+
+        let createQuizRow = CreateQuizRow(
+            publicID: normalizedQuiz.publicID,
+            creatorID: creatorID,
+            title: normalizedQuiz.title,
+            description: normalizedQuiz.description,
+            visibility: normalizedQuiz.visibility.rawValue
         )
 
         let quizRows: [QuizRow] = try await send(
@@ -62,7 +78,19 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
 
         let createdQuestions = try await replaceQuestions(
             for: createdQuiz.id,
-            questions: quiz.questions,
+            questions: normalizedQuiz.questions,
+            accessToken: accessToken
+        )
+
+        let createdAxisDefinitions = try await replaceAxisDefinitions(
+            for: createdQuiz.id,
+            axisDefinitions: normalizedAxisDefinitions,
+            accessToken: accessToken
+        )
+
+        let createdResultProfiles = try await replaceResultProfiles(
+            for: createdQuiz.id,
+            resultProfiles: normalizedResultProfiles,
             accessToken: accessToken
         )
 
@@ -74,15 +102,33 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
             description: createdQuiz.description,
             visibility: Visibility(rawValue: createdQuiz.visibility) ?? .linkOnly,
             questions: createdQuestions,
+            axisDefinitions: createdAxisDefinitions,
+            resultProfiles: createdResultProfiles,
             createdAt: createdQuiz.createdAt
         )
     }
 
     public func updateQuiz(quiz: Quiz, creatorID: UUID, accessToken: String) async throws -> Quiz {
-        try QuizValidator.validate(quiz: quiz)
+        let normalizedAxisDefinitions = AxisDefinition.normalized(quiz.axisDefinitions)
+        let normalizedResultProfiles = QuizResultProfile.normalized(quiz.resultProfiles, axisDefinitions: normalizedAxisDefinitions)
+
+        let normalizedQuiz = Quiz(
+            id: quiz.id,
+            publicID: quiz.publicID,
+            creatorID: quiz.creatorID,
+            title: quiz.title,
+            description: quiz.description,
+            visibility: quiz.visibility,
+            questions: quiz.questions,
+            axisDefinitions: normalizedAxisDefinitions,
+            resultProfiles: normalizedResultProfiles,
+            createdAt: quiz.createdAt
+        )
+
+        try QuizValidator.validate(quiz: normalizedQuiz)
 
         let queryItems = [
-            URLQueryItem(name: "id", value: "eq.\(quiz.id.uuidString.lowercased())"),
+            URLQueryItem(name: "id", value: "eq.\(normalizedQuiz.id.uuidString.lowercased())"),
             URLQueryItem(name: "creator_id", value: "eq.\(creatorID.uuidString.lowercased())")
         ]
 
@@ -91,9 +137,9 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
             method: "PATCH",
             queryItems: queryItems,
             body: UpdateQuizRow(
-                title: quiz.title,
-                description: quiz.description,
-                visibility: quiz.visibility.rawValue
+                title: normalizedQuiz.title,
+                description: normalizedQuiz.description,
+                visibility: normalizedQuiz.visibility.rawValue
             ),
             accessToken: accessToken,
             preferRepresentation: true
@@ -106,7 +152,7 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
         try await sendNoResponse(
             path: "questions",
             method: "DELETE",
-            queryItems: [URLQueryItem(name: "quiz_id", value: "eq.\(quiz.id.uuidString.lowercased())")],
+            queryItems: [URLQueryItem(name: "quiz_id", value: "eq.\(normalizedQuiz.id.uuidString.lowercased())")],
             body: Optional<Int>.none,
             accessToken: accessToken,
             preferRepresentation: false
@@ -114,7 +160,19 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
 
         let recreatedQuestions = try await replaceQuestions(
             for: updatedQuiz.id,
-            questions: quiz.questions,
+            questions: normalizedQuiz.questions,
+            accessToken: accessToken
+        )
+
+        let recreatedAxisDefinitions = try await replaceAxisDefinitions(
+            for: updatedQuiz.id,
+            axisDefinitions: normalizedAxisDefinitions,
+            accessToken: accessToken
+        )
+
+        let recreatedResultProfiles = try await replaceResultProfiles(
+            for: updatedQuiz.id,
+            resultProfiles: normalizedResultProfiles,
             accessToken: accessToken
         )
 
@@ -126,12 +184,14 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
             description: updatedQuiz.description,
             visibility: Visibility(rawValue: updatedQuiz.visibility) ?? .linkOnly,
             questions: recreatedQuestions,
+            axisDefinitions: recreatedAxisDefinitions,
+            resultProfiles: recreatedResultProfiles,
             createdAt: updatedQuiz.createdAt
         )
     }
 
     public func listCreatorQuizzes(creatorID: UUID, accessToken: String) async throws -> [Quiz] {
-        let select = "id,public_id,creator_id,title,description,visibility,created_at,questions(id,prompt,order_index,choices(id,body,order_index,ei_delta,sn_delta,tf_delta,jp_delta))"
+        let select = selectColumns
         let queryItems = [
             URLQueryItem(name: "select", value: select),
             URLQueryItem(name: "creator_id", value: "eq.\(creatorID.uuidString.lowercased())"),
@@ -151,7 +211,7 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
     }
 
     public func fetchQuiz(publicID: String) async throws -> Quiz? {
-        let select = "id,public_id,creator_id,title,description,visibility,created_at,questions(id,prompt,order_index,choices(id,body,order_index,ei_delta,sn_delta,tf_delta,jp_delta))"
+        let select = selectColumns
         let queryItems = [
             URLQueryItem(name: "select", value: select),
             URLQueryItem(name: "public_id", value: "eq.\(publicID)"),
@@ -168,6 +228,10 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
         )
 
         return rows.first.map(Self.mapQuizRow)
+    }
+
+    private var selectColumns: String {
+        "id,public_id,creator_id,title,description,visibility,created_at,questions(id,prompt,order_index,choices(id,body,order_index,ei_delta,sn_delta,tf_delta,jp_delta)),axis_definitions:quiz_axes(axis_key,order_index,positive_code,negative_code,positive_label,negative_label,tie_break),result_profiles:quiz_result_profiles(result_code,role_name,summary,detail,image_url)"
     }
 
     private func replaceQuestions(
@@ -234,6 +298,92 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
         }
 
         return createdQuestions.sorted(by: { $0.order < $1.order })
+    }
+
+    private func replaceAxisDefinitions(
+        for quizID: UUID,
+        axisDefinitions: [AxisDefinition],
+        accessToken: String
+    ) async throws -> [AxisDefinition] {
+        try await sendNoResponse(
+            path: "quiz_axes",
+            method: "DELETE",
+            queryItems: [URLQueryItem(name: "quiz_id", value: "eq.\(quizID.uuidString.lowercased())")],
+            body: Optional<Int>.none,
+            accessToken: accessToken,
+            preferRepresentation: false
+        )
+
+        let payload = AxisDefinition.normalized(axisDefinitions).map {
+            CreateAxisDefinitionRow(
+                quizID: quizID,
+                axisKey: $0.axisID.rawValue,
+                orderIndex: $0.order,
+                positiveCode: $0.positiveCode,
+                negativeCode: $0.negativeCode,
+                positiveLabel: $0.positiveLabel,
+                negativeLabel: $0.negativeLabel,
+                tieBreak: $0.tieBreak.rawValue
+            )
+        }
+
+        let rows: [AxisDefinitionRow] = try await send(
+            path: "quiz_axes",
+            method: "POST",
+            queryItems: nil,
+            body: payload,
+            accessToken: accessToken,
+            preferRepresentation: true
+        )
+
+        return Self.mapAxisRows(rows)
+    }
+
+    private func replaceResultProfiles(
+        for quizID: UUID,
+        resultProfiles: [QuizResultProfile],
+        accessToken: String
+    ) async throws -> [QuizResultProfile] {
+        try await sendNoResponse(
+            path: "quiz_result_profiles",
+            method: "DELETE",
+            queryItems: [URLQueryItem(name: "quiz_id", value: "eq.\(quizID.uuidString.lowercased())")],
+            body: Optional<Int>.none,
+            accessToken: accessToken,
+            preferRepresentation: false
+        )
+
+        let payload = resultProfiles.map {
+            CreateResultProfileRow(
+                quizID: quizID,
+                resultCode: $0.resultCode.uppercased(),
+                roleName: $0.roleName,
+                summary: $0.summary,
+                detail: $0.detail,
+                imageURL: $0.imageURL
+            )
+        }
+
+        let rows: [ResultProfileRow] = try await send(
+            path: "quiz_result_profiles",
+            method: "POST",
+            queryItems: nil,
+            body: payload,
+            accessToken: accessToken,
+            preferRepresentation: true
+        )
+
+        return rows
+            .sorted(by: { $0.resultCode < $1.resultCode })
+            .map {
+                QuizResultProfile(
+                    resultCode: $0.resultCode,
+                    roleName: $0.roleName,
+                    summary: $0.summary,
+                    detail: $0.detail,
+                    imageURL: $0.imageURL
+                )
+            }
     }
 
     private func send<Request: Encodable, Response: Decodable>(
@@ -338,6 +488,20 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
                 return Question(id: q.id, prompt: q.prompt, order: q.orderIndex, choices: choices)
             }
 
+        let axisDefinitions = mapAxisRows(row.axisDefinitions)
+        let resultProfiles = QuizResultProfile.normalized(
+            (row.resultProfiles ?? []).map {
+                QuizResultProfile(
+                    resultCode: $0.resultCode,
+                    roleName: $0.roleName,
+                    summary: $0.summary,
+                    detail: $0.detail,
+                    imageURL: $0.imageURL
+                )
+            },
+            axisDefinitions: axisDefinitions
+        )
+
         return Quiz(
             id: row.id,
             publicID: row.publicID,
@@ -346,8 +510,31 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
             description: row.description,
             visibility: Visibility(rawValue: row.visibility) ?? .linkOnly,
             questions: questions,
+            axisDefinitions: axisDefinitions,
+            resultProfiles: resultProfiles,
             createdAt: row.createdAt
         )
+    }
+
+    private static func mapAxisRows(_ rows: [AxisDefinitionRow]?) -> [AxisDefinition] {
+        guard let rows, !rows.isEmpty else {
+            return AxisDefinition.defaultSet()
+        }
+
+        let mapped = rows.compactMap { row -> AxisDefinition? in
+            guard let axisID = AxisID(rawValue: row.axisKey) else { return nil }
+            return AxisDefinition(
+                axisID: axisID,
+                order: row.orderIndex,
+                positiveCode: row.positiveCode,
+                negativeCode: row.negativeCode,
+                positiveLabel: row.positiveLabel,
+                negativeLabel: row.negativeLabel,
+                tieBreak: TieBreakSide(rawValue: row.tieBreak) ?? .positive
+            )
+        }
+
+        return AxisDefinition.normalized(mapped)
     }
 }
 
@@ -411,6 +598,46 @@ private struct CreateChoiceRow: Codable {
     }
 }
 
+private struct CreateAxisDefinitionRow: Codable {
+    let quizID: UUID
+    let axisKey: String
+    let orderIndex: Int
+    let positiveCode: String
+    let negativeCode: String
+    let positiveLabel: String
+    let negativeLabel: String
+    let tieBreak: String
+
+    enum CodingKeys: String, CodingKey {
+        case quizID = "quiz_id"
+        case axisKey = "axis_key"
+        case orderIndex = "order_index"
+        case positiveCode = "positive_code"
+        case negativeCode = "negative_code"
+        case positiveLabel = "positive_label"
+        case negativeLabel = "negative_label"
+        case tieBreak = "tie_break"
+    }
+}
+
+private struct CreateResultProfileRow: Codable {
+    let quizID: UUID
+    let resultCode: String
+    let roleName: String
+    let summary: String
+    let detail: String
+    let imageURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case quizID = "quiz_id"
+        case resultCode = "result_code"
+        case roleName = "role_name"
+        case summary
+        case detail
+        case imageURL = "image_url"
+    }
+}
+
 private struct QuizRow: Codable {
     let id: UUID
     let publicID: String
@@ -420,6 +647,8 @@ private struct QuizRow: Codable {
     let visibility: String
     let createdAt: Date
     let questions: [QuestionRow]?
+    let axisDefinitions: [AxisDefinitionRow]?
+    let resultProfiles: [ResultProfileRow]?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -430,6 +659,8 @@ private struct QuizRow: Codable {
         case visibility
         case createdAt = "created_at"
         case questions
+        case axisDefinitions = "axis_definitions"
+        case resultProfiles = "result_profiles"
     }
 }
 
@@ -464,5 +695,41 @@ private struct ChoiceRow: Codable {
         case snDelta = "sn_delta"
         case tfDelta = "tf_delta"
         case jpDelta = "jp_delta"
+    }
+}
+
+private struct AxisDefinitionRow: Codable {
+    let axisKey: String
+    let orderIndex: Int
+    let positiveCode: String
+    let negativeCode: String
+    let positiveLabel: String
+    let negativeLabel: String
+    let tieBreak: String
+
+    enum CodingKeys: String, CodingKey {
+        case axisKey = "axis_key"
+        case orderIndex = "order_index"
+        case positiveCode = "positive_code"
+        case negativeCode = "negative_code"
+        case positiveLabel = "positive_label"
+        case negativeLabel = "negative_label"
+        case tieBreak = "tie_break"
+    }
+}
+
+private struct ResultProfileRow: Codable {
+    let resultCode: String
+    let roleName: String
+    let summary: String
+    let detail: String
+    let imageURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case resultCode = "result_code"
+        case roleName = "role_name"
+        case summary
+        case detail
+        case imageURL = "image_url"
     }
 }

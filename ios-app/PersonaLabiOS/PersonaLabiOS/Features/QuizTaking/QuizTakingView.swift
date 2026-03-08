@@ -316,11 +316,16 @@ struct QuizTakingView: View {
                         answers: answers
                     )
                     let submitted = try await state.apiClient.submitResponse(payload: payload)
-                    let parsedType = MBTIType(canonicalValue: submitted.mbtiType) ?? .estj
+                    let profile = ResultCodeEngine.profile(for: submitted.resultCode, in: quiz.resultProfiles)
+                        ?? QuizResultProfile.default(for: submitted.resultCode)
+
                     state.latestResult = DiagnosisResult(
                         id: submitted.resultID,
                         quizID: quiz.id,
-                        type: parsedType,
+                        resultCode: submitted.resultCode,
+                        roleName: submitted.roleName.isEmpty ? profile.roleName : submitted.roleName,
+                        summary: submitted.summary.isEmpty ? profile.summary : submitted.summary,
+                        detail: submitted.detail.isEmpty ? profile.detail : submitted.detail,
                         axisScore: submitted.axisScores
                     )
                 } else {

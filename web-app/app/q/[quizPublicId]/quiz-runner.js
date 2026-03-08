@@ -3,24 +3,20 @@
 import { useMemo, useState } from "react";
 import { submitResponse } from "@/lib/supabase";
 
-const MBTI_SUMMARY = {
-  INTJ: "戦略志向で計画を立てて前進するタイプ",
-  INTP: "分析力が高く概念を深掘りするタイプ",
-  ENTJ: "意思決定が速く目標達成を牽引するタイプ",
-  ENTP: "発想が豊かで変化を楽しむタイプ",
-  INFJ: "洞察力と共感力で周囲を支えるタイプ",
-  INFP: "価値観を大切にし創造性を発揮するタイプ",
-  ENFJ: "対人理解に優れ人を巻き込むタイプ",
-  ENFP: "好奇心旺盛で可能性を広げるタイプ",
-  ISTJ: "誠実で着実に物事を完遂するタイプ",
-  ISFJ: "献身的で細やかな配慮が得意なタイプ",
-  ESTJ: "現実的で運営力に優れるタイプ",
-  ESFJ: "協調性が高く場を整えるタイプ",
-  ISTP: "冷静に状況を捉え実践で解決するタイプ",
-  ISFP: "感性豊かで柔軟に周囲と関わるタイプ",
-  ESTP: "行動力が高く機会を掴むタイプ",
-  ESFP: "明るく社交的で空気を盛り上げるタイプ"
-};
+function axisValue(axisKey, scores) {
+  switch (axisKey) {
+    case "ei":
+      return scores?.ei ?? 0;
+    case "sn":
+      return scores?.sn ?? 0;
+    case "tf":
+      return scores?.tf ?? 0;
+    case "jp":
+      return scores?.jp ?? 0;
+    default:
+      return 0;
+  }
+}
 
 export default function QuizRunner({ quiz, quizPublicId, token }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -33,12 +29,24 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
   const currentQuestion = quiz.questions[currentIndex];
   const progress = ((currentIndex + 1) / Math.max(quiz.questions.length, 1)) * 100;
 
-  const resultSummary = useMemo(() => {
+  const resultCode = useMemo(() => {
     if (!result) {
       return "";
     }
-    return MBTI_SUMMARY[result.mbti_type] ?? "あなたらしい個性が出た結果です。";
+    return (result.result_code || result.mbti_type || "").toUpperCase();
   }, [result]);
+
+  const matchedProfile = useMemo(() => {
+    if (!resultCode) {
+      return null;
+    }
+
+    return quiz.resultProfiles?.find((profile) => profile.resultCode === resultCode) ?? null;
+  }, [quiz.resultProfiles, resultCode]);
+
+  const roleName = result?.role_name || matchedProfile?.roleName || (resultCode ? `${resultCode}タイプ` : "");
+  const resultSummary = result?.summary || matchedProfile?.summary || "あなたらしい個性が出た結果です。";
+  const resultDetail = result?.detail || matchedProfile?.detail || "";
 
   const canMoveNext = Boolean(currentQuestion && answers[currentQuestion.id]);
 
@@ -88,7 +96,8 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
 
   const onCopy = async () => {
     const shareUrl = `${window.location.origin}/q/${quizPublicId}?token=${encodeURIComponent(token)}`;
-    const text = `私の診断結果は ${result.mbti_type} でした。あなたも回答してみてください。\n${shareUrl}`;
+    const displayName = roleName ? `${resultCode}（${roleName}）` : resultCode;
+    const text = `私の診断結果は ${displayName} でした。あなたも回答してみてください。\n${shareUrl}`;
 
     try {
       await navigator.clipboard.writeText(text);
@@ -100,7 +109,8 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
 
   const onShare = async () => {
     const shareUrl = `${window.location.origin}/q/${quizPublicId}?token=${encodeURIComponent(token)}`;
-    const text = `私の診断結果は ${result.mbti_type} でした。あなたも回答してみてください。`;
+    const displayName = roleName ? `${resultCode}（${roleName}）` : resultCode;
+    const text = `私の診断結果は ${displayName} でした。あなたも回答してみてください。`;
 
     if (!navigator.share) {
       setError("このブラウザでは共有APIが使えません。コピーを使ってください。");
@@ -123,26 +133,18 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
       <main className="stack">
         <section className="card stack">
           <span className="badge">診断結果</span>
-          <h1 className="result-type">{result.mbti_type}</h1>
+          <h1 className="result-type">{resultCode}</h1>
+          {roleName ? <h2 className="title" style={{ fontSize: "1.1rem" }}>{roleName}</h2> : null}
           <p className="subtle">{resultSummary}</p>
+          {resultDetail ? <p className="subtle">{resultDetail}</p> : null}
 
           <div className="axes">
-            <div className="axis">
-              <div className="k">EI</div>
-              <div className="v">{result.axis_scores?.ei ?? 0}</div>
-            </div>
-            <div className="axis">
-              <div className="k">SN</div>
-              <div className="v">{result.axis_scores?.sn ?? 0}</div>
-            </div>
-            <div className="axis">
-              <div className="k">TF</div>
-              <div className="v">{result.axis_scores?.tf ?? 0}</div>
-            </div>
-            <div className="axis">
-              <div className="k">JP</div>
-              <div className="v">{result.axis_scores?.jp ?? 0}</div>
-            </div>
+            {(quiz.axisDefinitions ?? []).map((axis) => (
+              <div className="axis" key={axis.axisKey}>
+                <div className="k">{`${axis.positiveCode}/${axis.negativeCode}`}</div>
+                <div className="v">{axisValue(axis.axisKey, result.axis_scores)}</div>
+              </div>
+            ))}
           </div>
 
           <div className="row wrap">

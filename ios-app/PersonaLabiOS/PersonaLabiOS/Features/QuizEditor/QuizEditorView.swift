@@ -9,6 +9,8 @@ struct QuizEditorView: View {
     @State private var title: String
     @State private var description: String
     @State private var questions: [QuestionDraft]
+    @State private var axisDefinitions: [AxisDefinition]
+    @State private var resultProfiles: [QuizResultProfile]
     @State private var showingCharacterImages = false
     @State private var draftPublicID: String
     @State private var pendingDeleteQuestionID: UUID?
@@ -18,13 +20,29 @@ struct QuizEditorView: View {
     init(editingQuiz: Quiz? = nil, onSave: @escaping (Quiz) -> Void) {
         self.editingQuiz = editingQuiz
         self.onSave = onSave
+
+        let initialAxisDefinitions = AxisDefinition.normalized(editingQuiz?.axisDefinitions ?? AxisDefinition.defaultSet())
         _title = State(initialValue: editingQuiz?.title ?? "")
         _description = State(initialValue: editingQuiz?.description ?? "")
         _questions = State(initialValue: Self.initialDrafts(from: editingQuiz))
+        _axisDefinitions = State(initialValue: initialAxisDefinitions)
+        _resultProfiles = State(
+            initialValue: QuizResultProfile.normalized(editingQuiz?.resultProfiles ?? [], axisDefinitions: initialAxisDefinitions)
+        )
         _draftPublicID = State(initialValue: editingQuiz?.publicID ?? UUID().uuidString.lowercased())
     }
 
     private let scaleValues = [3, 2, 1, 0, -1, -2, -3]
+
+    private var normalizedAxisDefinitions: [AxisDefinition] {
+        AxisDefinition.normalized(axisDefinitions)
+    }
+
+    private var activeResultProfiles: [QuizResultProfile] {
+        QuizResultProfile
+            .normalized(resultProfiles, axisDefinitions: normalizedAxisDefinitions)
+            .sorted(by: { $0.resultCode < $1.resultCode })
+    }
 
     private var canSave: Bool {
         let titleValue = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -39,6 +57,20 @@ struct QuizEditorView: View {
                 return false
             }
             if question.disagreeText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return false
+            }
+        }
+
+        for axis in normalizedAxisDefinitions {
+            if axis.positiveCode.isEmpty || axis.negativeCode.isEmpty { return false }
+            if axis.positiveCode == axis.negativeCode { return false }
+        }
+
+        for profile in activeResultProfiles {
+            if profile.roleName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return false
+            }
+            if profile.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 return false
             }
         }
@@ -63,7 +95,7 @@ struct QuizEditorView: View {
     }
 
     private var configuredImageCount: Int {
-        MBTIType.allCases.filter { imageStore.hasCustomImage(for: $0, quizPublicID: draftPublicID) }.count
+        activeResultProfiles.filter { imageStore.hasCustomImage(for: $0.resultCode, quizPublicID: draftPublicID) }.count
     }
 
     private var questionIDs: [UUID] {
@@ -77,7 +109,9 @@ struct QuizEditorView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     basicInfoSection
+                    axisSettingsSection
                     guidanceSection
+                    resultProfileSection
                     resultImageSection
                     questionsSection
                 }
@@ -98,7 +132,8 @@ struct QuizEditorView: View {
             NavigationStack {
                 CharacterImageSettingsView(
                     quizPublicID: draftPublicID,
-                    quizTitle: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "新規診断" : title
+                    quizTitle: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "新規診断" : title,
+                    profiles: activeResultProfiles
                 )
             }
         }
@@ -144,6 +179,45 @@ struct QuizEditorView: View {
         .popCard(cornerRadius: 18)
     }
 
+    private var axisSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("判定軸の英字設定")
+                .font(.headline)
+                .foregroundStyle(PopTheme.textPrimary)
+
+            Text("各軸で左側/右側の英字コードを設定できます（例: E / I）。同点時の採用側も選択できます。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            ForEach(normalizedAxisDefinitions, id: \.axisID) { axis in
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(axis.axisID.rawValue.uppercased())
+                            .font(.subheadline.bold())
+                        Spacer()
+                    }
+
+                    HStack(spacing: 8) {
+                        TextField("左コード", text: positiveCodeBinding(axis.axisID))
+                            .textFieldStyle(.roundedBorder)
+
+                        TextField("右コード", text: negativeCodeBinding(axis.axisID))
+                            .textFieldStyle(.roundedBorder)
+                    }
+
+                    Picker("同点時", selection: tieBreakBinding(axis.axisID)) {
+                        Text("左コードを採用").tag(TieBreakSide.positive)
+                        Text("右コードを採用").tag(TieBreakSide.negative)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .padding(12)
+                .background(Color.white.opacity(0.75), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+        }
+        .popCard(cornerRadius: 18)
+    }
+
     private var guidanceSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("入力ガイド")
@@ -164,20 +238,59 @@ struct QuizEditorView: View {
         .popCard(cornerRadius: 18)
     }
 
+    private var resultProfileSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("結果プロフィール（16パターン）")
+                .font(.headline)
+                .foregroundStyle(PopTheme.textPrimary)
+
+            Text("英字コードの組み合わせごとに、役割名・要約・詳細を設定できます。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            ForEach(activeResultProfiles, id: \.resultCode) { profile in
+                resultProfileCard(profile)
+            }
+        }
+        .popCard(cornerRadius: 18)
+    }
+
+    @ViewBuilder
+    private func resultProfileCard(_ profile: QuizResultProfile) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(profile.resultCode)
+                .font(.headline)
+                .foregroundStyle(PopTheme.textPrimary)
+
+            TextField("役割名", text: roleNameBinding(profile.resultCode))
+                .textFieldStyle(.roundedBorder)
+
+            TextField("要約", text: summaryBinding(profile.resultCode), axis: .vertical)
+                .lineLimit(2...3)
+                .textFieldStyle(.roundedBorder)
+
+            TextField("詳細説明", text: detailBinding(profile.resultCode), axis: .vertical)
+                .lineLimit(3...6)
+                .textFieldStyle(.roundedBorder)
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.75), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
     private var resultImageSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("結果画像（診断ごと）")
                 .font(.headline)
                 .foregroundStyle(PopTheme.textPrimary)
 
-            Text("16タイプ別にこの診断専用の画像を設定できます。未設定時はデフォルト画像が表示されます。")
+            Text("結果コードごとにこの診断専用の画像を設定できます。未設定時はデフォルト画像が表示されます。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
             Button {
                 showingCharacterImages = true
             } label: {
-                Label("タイプ画像を設定 \(configuredImageCount)/\(MBTIType.allCases.count)", systemImage: "person.crop.square")
+                Label("タイプ画像を設定 \(configuredImageCount)/\(activeResultProfiles.count)", systemImage: "person.crop.square")
             }
             .buttonStyle(.bordered)
         }
@@ -211,7 +324,8 @@ struct QuizEditorView: View {
     @ViewBuilder
     private func questionCard(questionID: UUID) -> some View {
         let number = (questionIndex(questionID) ?? 0) + 1
-        let axis = questionAxis(questionID)
+        let axisID = questionAxis(questionID)
+        let axisDefinition = axisDefinition(for: axisID)
 
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -242,8 +356,8 @@ struct QuizEditorView: View {
             }
 
             Picker("判定軸", selection: questionAxisBinding(questionID)) {
-                ForEach(QuestionAxis.allCases) { item in
-                    Text(item.pairLabel).tag(item)
+                ForEach(normalizedAxisDefinitions, id: \.axisID) { item in
+                    Text("\(item.positiveCode) / \(item.negativeCode)").tag(item.axisID)
                 }
             }
             .pickerStyle(.segmented)
@@ -251,11 +365,11 @@ struct QuizEditorView: View {
             Toggle(
                 isOn: agreeMapsToPositiveBinding(questionID)
             ) {
-                Text("左ラベルを \(axis.positiveTitle) 側として採点")
+                Text("左ラベルを \(axisDefinition.positiveCode) 側として採点")
                     .font(.subheadline)
             }
 
-            Text("現在: 左=\(questionAgreeMapsToPositive(questionID) ? axis.positiveTitle : axis.negativeTitle) / 右=\(questionAgreeMapsToPositive(questionID) ? axis.negativeTitle : axis.positiveTitle)")
+            Text("現在: 左=\(questionAgreeMapsToPositive(questionID) ? axisDefinition.positiveCode : axisDefinition.negativeCode) / 右=\(questionAgreeMapsToPositive(questionID) ? axisDefinition.negativeCode : axisDefinition.positiveCode)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -307,6 +421,10 @@ struct QuizEditorView: View {
         questions.firstIndex(where: { $0.id == questionID })
     }
 
+    private func axisIndex(_ axisID: AxisID) -> Int? {
+        axisDefinitions.firstIndex(where: { $0.axisID == axisID })
+    }
+
     private func questionPromptBinding(_ questionID: UUID) -> Binding<String> {
         Binding(
             get: {
@@ -346,7 +464,7 @@ struct QuizEditorView: View {
         )
     }
 
-    private func questionAxisBinding(_ questionID: UUID) -> Binding<QuestionAxis> {
+    private func questionAxisBinding(_ questionID: UUID) -> Binding<AxisID> {
         Binding(
             get: {
                 guard let qIndex = questionIndex(questionID) else { return .ei }
@@ -372,9 +490,104 @@ struct QuizEditorView: View {
         )
     }
 
-    private func questionAxis(_ questionID: UUID) -> QuestionAxis {
+    private func positiveCodeBinding(_ axisID: AxisID) -> Binding<String> {
+        Binding(
+            get: {
+                guard let index = axisIndex(axisID) else { return axisID.defaultPositiveCode }
+                return axisDefinitions[index].positiveCode
+            },
+            set: { newValue in
+                guard let index = axisIndex(axisID) else { return }
+                axisDefinitions[index].positiveCode = AxisDefinition.sanitizeCode(newValue, fallback: axisID.defaultPositiveCode)
+                syncResultProfiles()
+            }
+        )
+    }
+
+    private func negativeCodeBinding(_ axisID: AxisID) -> Binding<String> {
+        Binding(
+            get: {
+                guard let index = axisIndex(axisID) else { return axisID.defaultNegativeCode }
+                return axisDefinitions[index].negativeCode
+            },
+            set: { newValue in
+                guard let index = axisIndex(axisID) else { return }
+                axisDefinitions[index].negativeCode = AxisDefinition.sanitizeCode(newValue, fallback: axisID.defaultNegativeCode)
+                syncResultProfiles()
+            }
+        )
+    }
+
+    private func tieBreakBinding(_ axisID: AxisID) -> Binding<TieBreakSide> {
+        Binding(
+            get: {
+                guard let index = axisIndex(axisID) else { return .positive }
+                return axisDefinitions[index].tieBreak
+            },
+            set: { newValue in
+                guard let index = axisIndex(axisID) else { return }
+                axisDefinitions[index].tieBreak = newValue
+                syncResultProfiles()
+            }
+        )
+    }
+
+    private func roleNameBinding(_ resultCode: String) -> Binding<String> {
+        Binding(
+            get: { profile(for: resultCode).roleName },
+            set: { newValue in
+                updateProfile(resultCode: resultCode) { $0.roleName = newValue }
+            }
+        )
+    }
+
+    private func summaryBinding(_ resultCode: String) -> Binding<String> {
+        Binding(
+            get: { profile(for: resultCode).summary },
+            set: { newValue in
+                updateProfile(resultCode: resultCode) { $0.summary = newValue }
+            }
+        )
+    }
+
+    private func detailBinding(_ resultCode: String) -> Binding<String> {
+        Binding(
+            get: { profile(for: resultCode).detail },
+            set: { newValue in
+                updateProfile(resultCode: resultCode) { $0.detail = newValue }
+            }
+        )
+    }
+
+    private func profile(for resultCode: String) -> QuizResultProfile {
+        if let existing = resultProfiles.first(where: { $0.resultCode == resultCode }) {
+            return existing
+        }
+        return QuizResultProfile.default(for: resultCode)
+    }
+
+    private func updateProfile(resultCode: String, update: (inout QuizResultProfile) -> Void) {
+        if let index = resultProfiles.firstIndex(where: { $0.resultCode == resultCode }) {
+            update(&resultProfiles[index])
+            return
+        }
+
+        var created = QuizResultProfile.default(for: resultCode)
+        update(&created)
+        resultProfiles.append(created)
+    }
+
+    private func syncResultProfiles() {
+        resultProfiles = QuizResultProfile.normalized(resultProfiles, axisDefinitions: normalizedAxisDefinitions)
+    }
+
+    private func questionAxis(_ questionID: UUID) -> AxisID {
         guard let qIndex = questionIndex(questionID) else { return .ei }
         return questions[qIndex].axis
+    }
+
+    private func axisDefinition(for axisID: AxisID) -> AxisDefinition {
+        normalizedAxisDefinitions.first(where: { $0.axisID == axisID }) ?? .default(for: axisID)
     }
 
     private func questionAgreeMapsToPositive(_ questionID: UUID) -> Bool {
@@ -410,6 +623,9 @@ struct QuizEditorView: View {
             )
         }
 
+        let normalizedAxisDefinitions = self.normalizedAxisDefinitions
+        let normalizedResultProfiles = QuizResultProfile.normalized(resultProfiles, axisDefinitions: normalizedAxisDefinitions)
+
         let quiz = Quiz(
             id: editingQuiz?.id ?? UUID(),
             publicID: draftPublicID,
@@ -418,6 +634,8 @@ struct QuizEditorView: View {
             description: description,
             visibility: editingQuiz?.visibility ?? .linkOnly,
             questions: mappedQuestions,
+            axisDefinitions: normalizedAxisDefinitions,
+            resultProfiles: normalizedResultProfiles,
             createdAt: editingQuiz?.createdAt ?? Date()
         )
 
@@ -465,70 +683,16 @@ struct QuizEditorView: View {
     }
 }
 
-enum QuestionAxis: String, CaseIterable, Identifiable {
-    case ei
-    case sn
-    case tf
-    case jp
-
-    var id: String { rawValue }
-
-    var pairLabel: String {
-        switch self {
-        case .ei: return "E / I"
-        case .sn: return "S / N"
-        case .tf: return "T / F"
-        case .jp: return "J / P"
-        }
-    }
-
-    var positiveTitle: String {
-        switch self {
-        case .ei: return "E"
-        case .sn: return "S"
-        case .tf: return "T"
-        case .jp: return "J"
-        }
-    }
-
-    var negativeTitle: String {
-        switch self {
-        case .ei: return "I"
-        case .sn: return "N"
-        case .tf: return "F"
-        case .jp: return "P"
-        }
-    }
-
-    func axisScore(from signedValue: Int) -> AxisScore {
-        switch self {
-        case .ei: return AxisScore(ei: signedValue)
-        case .sn: return AxisScore(sn: signedValue)
-        case .tf: return AxisScore(tf: signedValue)
-        case .jp: return AxisScore(jp: signedValue)
-        }
-    }
-
-    func value(from axisScore: AxisScore) -> Int {
-        switch self {
-        case .ei: return axisScore.ei
-        case .sn: return axisScore.sn
-        case .tf: return axisScore.tf
-        case .jp: return axisScore.jp
-        }
-    }
-}
-
 struct QuestionDraft: Identifiable {
     let id = UUID()
     var prompt: String
     var agreeText: String
     var disagreeText: String
-    var axis: QuestionAxis
+    var axis: AxisID
     var agreeMapsToPositive: Bool
 
     static func sample(index: Int) -> QuestionDraft {
-        let defaultAxis = QuestionAxis.allCases[index % QuestionAxis.allCases.count]
+        let defaultAxis = AxisID.allCases[index % AxisID.allCases.count]
         return QuestionDraft(
             prompt: "質問\(index + 1)",
             agreeText: "そう思う",
@@ -540,7 +704,7 @@ struct QuestionDraft: Identifiable {
 
     static func from(question: Question, fallbackIndex: Int) -> QuestionDraft {
         let sortedChoices = question.choices.sorted(by: { $0.order < $1.order })
-        let inferredAxis = inferAxis(from: sortedChoices) ?? QuestionAxis.allCases[fallbackIndex % QuestionAxis.allCases.count]
+        let inferredAxis = inferAxis(from: sortedChoices) ?? AxisID.allCases[fallbackIndex % AxisID.allCases.count]
 
         let firstChoice = sortedChoices.first
         let lastChoice = sortedChoices.last
@@ -565,10 +729,10 @@ struct QuestionDraft: Identifiable {
         )
     }
 
-    private static func inferAxis(from choices: [Choice]) -> QuestionAxis? {
+    private static func inferAxis(from choices: [Choice]) -> AxisID? {
         guard !choices.isEmpty else { return nil }
 
-        let scores: [(QuestionAxis, Int)] = [
+        let scores: [(AxisID, Int)] = [
             (.ei, choices.reduce(0) { $0 + abs($1.axisDelta.ei) }),
             (.sn, choices.reduce(0) { $0 + abs($1.axisDelta.sn) }),
             (.tf, choices.reduce(0) { $0 + abs($1.axisDelta.tf) }),

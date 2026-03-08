@@ -28,8 +28,15 @@ struct ResultView: View {
         currentQuiz?.title ?? "診断"
     }
 
+    private var profilesForQuiz: [QuizResultProfile] {
+        if let quiz = currentQuiz {
+            return quiz.resultProfiles
+        }
+        return QuizResultProfile.normalized([], axisDefinitions: AxisDefinition.defaultSet())
+    }
+
     private var avatarImageData: Data? {
-        imageStore.imageData(for: result.type, quizPublicID: quizPublicID)
+        imageStore.imageData(for: result.resultCode, quizPublicID: quizPublicID)
     }
 
     var body: some View {
@@ -44,13 +51,26 @@ struct ResultView: View {
                     )
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("タイプ: \(result.type.title)")
+                        Text("結果コード: \(result.resultCode)")
                             .font(.title2.bold())
                             .foregroundStyle(PopTheme.textPrimary)
 
-                        Text(ResultProfileStore.all[result.type]?.summary ?? "")
+                        if !result.roleName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Text("役割名: \(result.roleName)")
+                                .font(.headline)
+                                .foregroundStyle(PopTheme.textPrimary)
+                        }
+
+                        Text(result.summary)
                             .font(.body)
                             .foregroundStyle(.secondary)
+
+                        if !result.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Divider()
+                            Text(result.detail)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
 
                         Text("この結果カード画像はSNS共有時にも利用されます。")
                             .font(.caption)
@@ -103,9 +123,13 @@ struct ResultView: View {
         .sheet(isPresented: $showingCharacterImages) {
             NavigationStack {
                 if let quizPublicID {
-                    CharacterImageSettingsView(quizPublicID: quizPublicID, quizTitle: quizTitle)
+                    CharacterImageSettingsView(
+                        quizPublicID: quizPublicID,
+                        quizTitle: quizTitle,
+                        profiles: profilesForQuiz
+                    )
                 } else {
-                    CharacterImageSettingsView()
+                    CharacterImageSettingsView(profiles: profilesForQuiz)
                 }
             }
         }

@@ -18,11 +18,17 @@ struct ResultCardView: View {
                         .font(.caption.bold())
                         .foregroundStyle(.white.opacity(0.85))
 
-                    Text(result.type.title)
+                    Text(result.resultCode)
                         .font(.system(size: 42, weight: .black, design: .rounded))
                         .foregroundStyle(.white)
 
-                    Text(ResultProfileStore.all[result.type]?.summary ?? "")
+                    if !result.roleName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(result.roleName)
+                            .font(.headline)
+                            .foregroundStyle(.white.opacity(0.95))
+                    }
+
+                    Text(result.summary)
                         .font(.subheadline)
                         .foregroundStyle(.white.opacity(0.95))
                 }
@@ -81,7 +87,7 @@ struct ResultCardView: View {
                         Image(systemName: "sparkles")
                             .font(.headline)
                             .foregroundStyle(.white.opacity(0.95))
-                        Text(result.type.title)
+                        Text(result.resultCode)
                             .font(.caption.bold())
                             .foregroundStyle(.white)
                     }

@@ -10,16 +10,24 @@ struct CharacterImageSettingsView: View {
 
     let quizPublicID: String?
     let quizTitle: String?
+    let profiles: [QuizResultProfile]
 
 #if canImport(PhotosUI)
     @State private var isShowingPicker = false
     @State private var selectedPickerItem: PhotosPickerItem?
-    @State private var editingType: MBTIType?
+    @State private var editingResultCode: String?
 #endif
 
-    init(quizPublicID: String? = nil, quizTitle: String? = nil) {
+    init(quizPublicID: String? = nil, quizTitle: String? = nil, profiles: [QuizResultProfile]? = nil) {
         self.quizPublicID = quizPublicID
         self.quizTitle = quizTitle
+        if let profiles, !profiles.isEmpty {
+            self.profiles = profiles.sorted(by: { $0.resultCode < $1.resultCode })
+        } else {
+            self.profiles = QuizResultProfile
+                .normalized([], axisDefinitions: AxisDefinition.defaultSet())
+                .sorted(by: { $0.resultCode < $1.resultCode })
+        }
     }
 
     private var isScopedSetting: Bool {
@@ -27,7 +35,7 @@ struct CharacterImageSettingsView: View {
     }
 
     private var configuredCount: Int {
-        MBTIType.allCases.filter { imageStore.hasCustomImage(for: $0, quizPublicID: quizPublicID) }.count
+        profiles.filter { imageStore.hasCustomImage(for: $0.resultCode, quizPublicID: quizPublicID) }.count
     }
 
     private var subtitleText: String {
@@ -47,7 +55,7 @@ struct CharacterImageSettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("タイプごとにキャラ画像を設定")
+                        Text("結果タイプごとにキャラ画像を設定")
                             .font(.title3.bold())
                             .foregroundStyle(PopTheme.textPrimary)
 
@@ -65,7 +73,7 @@ struct CharacterImageSettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
 
-                        Text("この画面で設定済み: \(configuredCount) / \(MBTIType.allCases.count)")
+                        Text("この画面で設定済み: \(configuredCount) / \(profiles.count)")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -80,8 +88,8 @@ struct CharacterImageSettingsView: View {
                         .buttonStyle(.bordered)
                     }
 
-                    ForEach(MBTIType.allCases, id: \.self) { type in
-                        row(for: type)
+                    ForEach(profiles, id: \.resultCode) { profile in
+                        row(for: profile)
                     }
                 }
                 .padding(16)
@@ -97,19 +105,19 @@ struct CharacterImageSettingsView: View {
 #if canImport(PhotosUI)
         .photosPicker(isPresented: $isShowingPicker, selection: $selectedPickerItem, matching: .images)
         .onChange(of: selectedPickerItem) { _, newValue in
-            guard let newValue, let targetType = editingType else { return }
+            guard let newValue, let targetCode = editingResultCode else { return }
 
             Task {
                 let data = try? await newValue.loadTransferable(type: Data.self)
                 if let data {
                     await MainActor.run {
-                        imageStore.setImageData(data, for: targetType, quizPublicID: quizPublicID)
+                        imageStore.setImageData(data, for: targetCode, quizPublicID: quizPublicID)
                     }
                 }
 
                 await MainActor.run {
                     selectedPickerItem = nil
-                    editingType = nil
+                    editingResultCode = nil
                 }
             }
         }
@@ -117,18 +125,27 @@ struct CharacterImageSettingsView: View {
     }
 
     @ViewBuilder
-    private func row(for type: MBTIType) -> some View {
-        let hasScopedCustom = imageStore.hasCustomImage(for: type, quizPublicID: quizPublicID)
-        let hasGlobalCustom = imageStore.hasCustomImage(for: type, quizPublicID: nil)
+    private func row(for profile: QuizResultProfile) -> some View {
+        let resultCode = profile.resultCode.uppercased()
+        let hasScopedCustom = imageStore.hasCustomImage(for: resultCode, quizPublicID: quizPublicID)
+        let hasGlobalCustom = imageStore.hasCustomImage(for: resultCode, quizPublicID: nil)
         let isUsingGlobalFallback = isScopedSetting && !hasScopedCustom && hasGlobalCustom
 
         HStack(spacing: 12) {
-            avatarPreview(for: type)
+            avatarPreview(for: resultCode)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(type.title)
+                Text(resultCode)
                     .font(.headline)
-                Text(ResultProfileStore.all[type]?.summary ?? "")
+
+                if !profile.roleName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(profile.roleName)
+                        .font(.caption)
+                        .foregroundStyle(PopTheme.textPrimary)
+                        .lineLimit(1)
+                }
+
+                Text(profile.summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -152,13 +169,13 @@ struct CharacterImageSettingsView: View {
 
             VStack(spacing: 8) {
                 Button("選択") {
-                    openPicker(for: type)
+                    openPicker(for: resultCode)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(PopTheme.accent)
 
                 Button("削除", role: .destructive) {
-                    imageStore.removeImage(for: type, quizPublicID: quizPublicID)
+                    imageStore.removeImage(for: resultCode, quizPublicID: quizPublicID)
                 }
                 .buttonStyle(.bordered)
                 .disabled(!hasScopedCustom)
@@ -168,8 +185,8 @@ struct CharacterImageSettingsView: View {
     }
 
     @ViewBuilder
-    private func avatarPreview(for type: MBTIType) -> some View {
-        if let image = imageStore.image(for: type, quizPublicID: quizPublicID) {
+    private func avatarPreview(for resultCode: String) -> some View {
+        if let image = imageStore.image(for: resultCode, quizPublicID: quizPublicID) {
             image
                 .resizable()
                 .scaledToFill()
@@ -194,7 +211,7 @@ struct CharacterImageSettingsView: View {
                         Image(systemName: "sparkles")
                             .font(.caption)
                             .foregroundStyle(.white.opacity(0.92))
-                        Text(type.title)
+                        Text(resultCode)
                             .font(.caption2.bold())
                             .foregroundStyle(.white)
                     }
@@ -202,9 +219,9 @@ struct CharacterImageSettingsView: View {
         }
     }
 
-    private func openPicker(for type: MBTIType) {
+    private func openPicker(for resultCode: String) {
 #if canImport(PhotosUI)
-        editingType = type
+        editingResultCode = resultCode
         isShowingPicker = true
 #endif
     }

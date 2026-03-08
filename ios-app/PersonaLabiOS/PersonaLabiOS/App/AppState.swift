@@ -173,7 +173,8 @@ final class AppState: ObservableObject {
     func buildShareMessage(for result: DiagnosisResult) async {
         do {
             let shareURL = try await makeShareURL(for: result)
-            let message = "私の診断結果は \(result.type.title) でした。あなたも回答してみてください。"
+            let displayName = result.roleName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? result.resultCode : "\(result.resultCode)（\(result.roleName)）"
+            let message = "私の診断結果は \(displayName) でした。あなたも回答してみてください。"
             sharePayload = SharePayload(shareURL: shareURL, message: message)
         } catch {
             errorMessage = "共有リンクの作成に失敗しました: \(error.localizedDescription)"
@@ -252,13 +253,8 @@ final class AppState: ObservableObject {
 
         let accessToken = authSession?.accessToken
 
-        if skipLoginForDev && (accessToken == nil || accessToken?.isEmpty == true) {
-            let mock = MockAPIClient(config: config)
-            return try await mock.createShareLink(quizID: result.quizID, accessToken: nil).shareURL
-        }
-
         if authClient != nil && (accessToken == nil || accessToken?.isEmpty == true) {
-            throw APIClientError.server(statusCode: 401, message: "共有にはログインが必要です")
+            throw APIClientError.server(statusCode: 401, message: skipLoginForDev ? "共有リンクを発行するには SKIP_LOGIN_FOR_DEV を false にしてログインしてください" : "共有にはログインが必要です")
         }
 
         return try await apiClient.createShareLink(quizID: result.quizID, accessToken: accessToken).shareURL
@@ -267,13 +263,8 @@ final class AppState: ObservableObject {
     private func makeShareURL(for quiz: Quiz) async throws -> URL {
         let accessToken = authSession?.accessToken
 
-        if skipLoginForDev && (accessToken == nil || accessToken?.isEmpty == true) {
-            let mock = MockAPIClient(config: config)
-            return try await mock.createShareLink(quizID: quiz.id, accessToken: nil).shareURL
-        }
-
         if authClient != nil && (accessToken == nil || accessToken?.isEmpty == true) {
-            throw APIClientError.server(statusCode: 401, message: "共有にはログインが必要です")
+            throw APIClientError.server(statusCode: 401, message: skipLoginForDev ? "共有リンクを発行するには SKIP_LOGIN_FOR_DEV を false にしてログインしてください" : "共有にはログインが必要です")
         }
 
         do {

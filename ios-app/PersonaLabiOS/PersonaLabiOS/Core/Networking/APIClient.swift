@@ -36,15 +36,37 @@ public struct SubmitResponseRequest: Codable {
     }
 }
 
-public struct SubmitResponseResponse: Codable {
+public struct SubmitResponseResponse: Decodable {
     public var resultID: UUID
-    public var mbtiType: String
+    public var resultCode: String
     public var axisScores: AxisScore
+    public var roleName: String
+    public var summary: String
+    public var detail: String
 
     enum CodingKeys: String, CodingKey {
         case resultID = "result_id"
+        case resultCode = "result_code"
         case mbtiType = "mbti_type"
         case axisScores = "axis_scores"
+        case roleName = "role_name"
+        case summary
+        case detail
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        resultID = try container.decode(UUID.self, forKey: .resultID)
+
+        let code = try container.decodeIfPresent(String.self, forKey: .resultCode)
+            ?? container.decodeIfPresent(String.self, forKey: .mbtiType)
+            ?? ""
+        resultCode = code.uppercased()
+
+        axisScores = try container.decodeIfPresent(AxisScore.self, forKey: .axisScores) ?? .zero
+        roleName = try container.decodeIfPresent(String.self, forKey: .roleName) ?? ""
+        summary = try container.decodeIfPresent(String.self, forKey: .summary) ?? ""
+        detail = try container.decodeIfPresent(String.self, forKey: .detail) ?? ""
     }
 }
 
@@ -193,12 +215,26 @@ public final class MockAPIClient: APIClientProtocol {
             tf: Int.random(in: -12...12),
             jp: Int.random(in: -12...12)
         )
-        let type = MBTIDecoder.decode(from: syntheticScore)
 
-        return SubmitResponseResponse(
-            resultID: UUID(),
-            mbtiType: type.rawValue.uppercased(),
-            axisScores: syntheticScore
-        )
+        let axisDefinitions = AxisDefinition.defaultSet()
+        let code = ResultCodeEngine.decode(score: syntheticScore, axisDefinitions: axisDefinitions)
+        let profile = QuizResultProfile.default(for: code)
+
+        let json: [String: Any] = [
+            "result_id": UUID().uuidString.lowercased(),
+            "result_code": code,
+            "axis_scores": [
+                "ei": syntheticScore.ei,
+                "sn": syntheticScore.sn,
+                "tf": syntheticScore.tf,
+                "jp": syntheticScore.jp
+            ],
+            "role_name": profile.roleName,
+            "summary": profile.summary,
+            "detail": profile.detail
+        ]
+
+        let data = try JSONSerialization.data(withJSONObject: json, options: [])
+        return try JSONDecoder().decode(SubmitResponseResponse.self, from: data)
     }
 }

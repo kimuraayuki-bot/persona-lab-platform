@@ -22,19 +22,22 @@ final class CharacterImageStore: ObservableObject {
         loadFromDefaults()
     }
 
-    func imageData(for type: MBTIType, quizPublicID: String? = nil) -> Data? {
-        if let quizPublicID, let scoped = imageDataByStorageKey[key(for: type, quizPublicID: quizPublicID)] {
+    func imageData(for resultCode: String, quizPublicID: String? = nil) -> Data? {
+        let normalizedCode = normalizeResultCode(resultCode)
+        if let quizPublicID,
+           let scoped = imageDataByStorageKey[key(for: normalizedCode, quizPublicID: quizPublicID)] {
             return scoped
         }
-        return imageDataByStorageKey[key(for: type, quizPublicID: nil)]
+        return imageDataByStorageKey[key(for: normalizedCode, quizPublicID: nil)]
     }
 
-    func hasCustomImage(for type: MBTIType, quizPublicID: String? = nil) -> Bool {
-        imageDataByStorageKey[key(for: type, quizPublicID: quizPublicID)] != nil
+    func hasCustomImage(for resultCode: String, quizPublicID: String? = nil) -> Bool {
+        let normalizedCode = normalizeResultCode(resultCode)
+        return imageDataByStorageKey[key(for: normalizedCode, quizPublicID: quizPublicID)] != nil
     }
 
-    func image(for type: MBTIType, quizPublicID: String? = nil) -> Image? {
-        guard let data = imageData(for: type, quizPublicID: quizPublicID) else { return nil }
+    func image(for resultCode: String, quizPublicID: String? = nil) -> Image? {
+        guard let data = imageData(for: resultCode, quizPublicID: quizPublicID) else { return nil }
 
 #if canImport(UIKit)
         guard let uiImage = UIImage(data: data) else { return nil }
@@ -47,15 +50,15 @@ final class CharacterImageStore: ObservableObject {
 #endif
     }
 
-    func setImageData(_ data: Data, for type: MBTIType, quizPublicID: String? = nil) {
+    func setImageData(_ data: Data, for resultCode: String, quizPublicID: String? = nil) {
         let normalized = normalizeImageData(data) ?? data
-        let storageKey = key(for: type, quizPublicID: quizPublicID)
+        let storageKey = key(for: normalizeResultCode(resultCode), quizPublicID: quizPublicID)
         imageDataByStorageKey[storageKey] = normalized
         defaults.set(normalized, forKey: storageKey)
     }
 
-    func removeImage(for type: MBTIType, quizPublicID: String? = nil) {
-        let storageKey = key(for: type, quizPublicID: quizPublicID)
+    func removeImage(for resultCode: String, quizPublicID: String? = nil) {
+        let storageKey = key(for: normalizeResultCode(resultCode), quizPublicID: quizPublicID)
         imageDataByStorageKey.removeValue(forKey: storageKey)
         defaults.removeObject(forKey: storageKey)
     }
@@ -71,18 +74,18 @@ final class CharacterImageStore: ObservableObject {
             return
         }
 
-        for type in MBTIType.allCases {
-            let storageKey = key(for: type, quizPublicID: nil)
+        let globalKeys = imageDataByStorageKey.keys.filter { $0.hasPrefix(globalKeyPrefix) }
+        for storageKey in globalKeys {
             imageDataByStorageKey.removeValue(forKey: storageKey)
             defaults.removeObject(forKey: storageKey)
         }
     }
 
-    private func key(for type: MBTIType, quizPublicID: String?) -> String {
+    private func key(for resultCode: String, quizPublicID: String?) -> String {
         if let quizPublicID, !quizPublicID.isEmpty {
-            return scopedPrefix(for: quizPublicID) + type.rawValue
+            return scopedPrefix(for: quizPublicID) + resultCode
         }
-        return globalKeyPrefix + type.rawValue
+        return globalKeyPrefix + resultCode
     }
 
     private func scopedPrefix(for quizPublicID: String) -> String {
@@ -95,6 +98,15 @@ final class CharacterImageStore: ObservableObject {
         return normalized.isEmpty ? "quiz" : normalized
     }
 
+    private func normalizeResultCode(_ resultCode: String) -> String {
+        let cleaned = resultCode
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+            .filter { $0.isLetter || $0.isNumber }
+
+        return cleaned.isEmpty ? "TYPE" : String(cleaned.prefix(16))
+    }
+
     private func loadFromDefaults() {
         var loaded: [String: Data] = [:]
 
@@ -105,11 +117,15 @@ final class CharacterImageStore: ObservableObject {
             }
         }
 
-        for type in MBTIType.allCases {
-            let legacyKey = legacyKeyPrefix + type.rawValue
+        let legacyCodes = ResultCodeEngine
+            .allCodes(axisDefinitions: AxisDefinition.defaultSet())
+            .map { $0.lowercased() }
+
+        for code in legacyCodes {
+            let legacyKey = legacyKeyPrefix + code
             guard let legacyData = defaults.data(forKey: legacyKey) else { continue }
 
-            let migratedKey = key(for: type, quizPublicID: nil)
+            let migratedKey = key(for: code.uppercased(), quizPublicID: nil)
             if loaded[migratedKey] == nil {
                 loaded[migratedKey] = legacyData
                 defaults.set(legacyData, forKey: migratedKey)

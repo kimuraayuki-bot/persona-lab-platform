@@ -9,6 +9,11 @@ public enum ValidationError: Error, LocalizedError, Equatable {
     case tooManyChoices
     case tooFewChoices
     case emptyChoiceText
+    case invalidAxisDefinition
+    case duplicatedAxisCode
+    case missingResultProfiles
+    case duplicatedResultProfile
+    case emptyResultProfileField
     case answerCountMismatch
     case duplicatedAnswer
     case invalidChoice
@@ -23,6 +28,11 @@ public enum ValidationError: Error, LocalizedError, Equatable {
         case .tooManyChoices: return "選択肢数が上限を超えています。"
         case .tooFewChoices: return "選択肢数が不足しています。"
         case .emptyChoiceText: return "選択肢文が空です。"
+        case .invalidAxisDefinition: return "軸設定が不正です。"
+        case .duplicatedAxisCode: return "同じ軸で左右の英字コードが重複しています。"
+        case .missingResultProfiles: return "16結果プロフィールが不足しています。"
+        case .duplicatedResultProfile: return "結果コードが重複しています。"
+        case .emptyResultProfileField: return "結果プロフィールの未入力項目があります。"
         case .answerCountMismatch: return "回答数が設問数と一致しません。"
         case .duplicatedAnswer: return "重複回答があります。"
         case .invalidChoice: return "不正な選択肢が含まれています。"
@@ -63,6 +73,55 @@ public enum QuizValidator {
             }
             if question.choices.contains(where: { $0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
                 throw ValidationError.emptyChoiceText
+            }
+        }
+
+        let normalizedAxes = AxisDefinition.normalized(quiz.axisDefinitions)
+        if normalizedAxes.count != AxisID.allCases.count {
+            throw ValidationError.invalidAxisDefinition
+        }
+
+        for axis in normalizedAxes {
+            let positive = AxisDefinition.sanitizeCode(axis.positiveCode, fallback: "")
+            let negative = AxisDefinition.sanitizeCode(axis.negativeCode, fallback: "")
+
+            if positive.isEmpty || negative.isEmpty {
+                throw ValidationError.invalidAxisDefinition
+            }
+            if positive == negative {
+                throw ValidationError.duplicatedAxisCode
+            }
+        }
+
+        let expectedCodes = Set(ResultCodeEngine.allCodes(axisDefinitions: normalizedAxes).map { $0.uppercased() })
+        guard expectedCodes.count == 16 else {
+            throw ValidationError.invalidAxisDefinition
+        }
+
+        let normalizedProfiles = quiz.resultProfiles.map {
+            QuizResultProfile(
+                resultCode: $0.resultCode.uppercased(),
+                roleName: $0.roleName,
+                summary: $0.summary,
+                detail: $0.detail,
+                imageURL: $0.imageURL
+            )
+        }
+
+        let profileCodes = normalizedProfiles.map { $0.resultCode }
+        if Set(profileCodes).count != profileCodes.count {
+            throw ValidationError.duplicatedResultProfile
+        }
+
+        let profileCodeSet = Set(profileCodes)
+        if !expectedCodes.isSubset(of: profileCodeSet) {
+            throw ValidationError.missingResultProfiles
+        }
+
+        for profile in normalizedProfiles where expectedCodes.contains(profile.resultCode) {
+            if profile.roleName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || profile.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                throw ValidationError.emptyResultProfileField
             }
         }
     }
