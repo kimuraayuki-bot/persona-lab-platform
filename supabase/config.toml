@@ -1,0 +1,7 @@
+project_id = "tdctpfxrormusqduvyuq"
+
+[functions.create_share_link]
+verify_jwt = false
+
+[functions.submit_response]
+verify_jwt = false

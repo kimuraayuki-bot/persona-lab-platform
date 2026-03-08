@@ -1,0 +1,14 @@
+.DS_Store
+.build/
+.swiftpm/
+.env
+.env.*
+!.env.example
+.supabase_project_secrets.env
+
+# Xcode user-specific files
+**/xcuserdata/
+*.xcuserstate
+
+# Supabase local temp
+supabase/.temp/

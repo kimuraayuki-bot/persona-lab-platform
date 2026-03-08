@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:vscode_test}",
+            "name": "Debug PersonaLabApp",
+            "target": "PersonaLabApp",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug PersonaLabApp"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:vscode_test}",
+            "name": "Release PersonaLabApp",
+            "target": "PersonaLabApp",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release PersonaLabApp"
+        }
+    ]
+}
