@@ -3,6 +3,7 @@ import Foundation
 public protocol QuizDataClientProtocol {
     func createQuiz(quiz: Quiz, creatorID: UUID, accessToken: String) async throws -> Quiz
     func updateQuiz(quiz: Quiz, creatorID: UUID, accessToken: String) async throws -> Quiz
+    func deleteQuiz(quizID: UUID, creatorID: UUID, accessToken: String) async throws
     func listCreatorQuizzes(creatorID: UUID, accessToken: String) async throws -> [Quiz]
     func fetchQuiz(publicID: String) async throws -> Quiz?
 }
@@ -187,6 +188,22 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
             axisDefinitions: recreatedAxisDefinitions,
             resultProfiles: recreatedResultProfiles,
             createdAt: updatedQuiz.createdAt
+        )
+    }
+
+    public func deleteQuiz(quizID: UUID, creatorID: UUID, accessToken: String) async throws {
+        let queryItems = [
+            URLQueryItem(name: "id", value: "eq.\(quizID.uuidString.lowercased())"),
+            URLQueryItem(name: "creator_id", value: "eq.\(creatorID.uuidString.lowercased())")
+        ]
+
+        try await sendNoResponse(
+            path: "quizzes",
+            method: "DELETE",
+            queryItems: queryItems,
+            body: Optional<Int>.none,
+            accessToken: accessToken,
+            preferRepresentation: false
         )
     }
 

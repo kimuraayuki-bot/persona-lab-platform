@@ -16,6 +16,7 @@ final class AppState: ObservableObject {
 
     let apiClient: APIClientProtocol
     let config: AppConfig
+    private let imageStore = CharacterImageStore.shared
 
     private let authClient: AuthClientProtocol?
     private let quizDataClient: QuizDataClientProtocol?
@@ -170,6 +171,27 @@ final class AppState: ObservableObject {
         }
     }
 
+    func deleteQuiz(_ quiz: Quiz) async {
+        errorMessage = nil
+
+        if let session = authSession,
+           let quizDataClient,
+           quiz.creatorID != nil {
+            do {
+                try await quizDataClient.deleteQuiz(
+                    quizID: quiz.id,
+                    creatorID: session.userID,
+                    accessToken: session.accessToken
+                )
+            } catch {
+                errorMessage = "診断の削除に失敗しました: \(error.localizedDescription)"
+                return
+            }
+        }
+
+        removeQuizLocally(quiz)
+    }
+
     func buildShareMessage(for result: DiagnosisResult) async {
         do {
             let shareURL = try await makeShareURL(for: result)
@@ -311,5 +333,21 @@ final class AppState: ObservableObject {
         } else {
             quizzes.insert(quiz, at: 0)
         }
+    }
+
+    private func removeQuizLocally(_ quiz: Quiz) {
+        quizzes.removeAll { $0.id == quiz.id || $0.publicID == quiz.publicID }
+
+        if activeQuiz?.id == quiz.id {
+            activeQuiz = nil
+        }
+
+        if latestResult?.quizID == quiz.id {
+            latestResult = nil
+        }
+
+        sharePayload = nil
+        activeShareToken = nil
+        imageStore.removeAllImages(quizPublicID: quiz.publicID)
     }
 }

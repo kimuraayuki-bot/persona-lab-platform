@@ -6,6 +6,8 @@ struct QuizListView: View {
     @State private var showingEditor = false
     @State private var showingCharacterImages = false
     @State private var editingQuiz: Quiz?
+    @State private var pendingDeleteQuiz: Quiz?
+    @State private var deletingQuizID: UUID?
 
     @State private var showingShareSheet = false
     @State private var sharingQuizID: UUID?
@@ -82,6 +84,31 @@ struct QuizListView: View {
             .sheet(isPresented: $showingShareSheet) {
                 ShareSheet(items: shareItems)
             }
+            .confirmationDialog(
+                "この診断を削除しますか？",
+                isPresented: Binding(
+                    get: { pendingDeleteQuiz != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            pendingDeleteQuiz = nil
+                        }
+                    }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("削除", role: .destructive) {
+                    guard let quiz = pendingDeleteQuiz else { return }
+                    pendingDeleteQuiz = nil
+                    Task { await deleteQuiz(quiz) }
+                }
+                Button("キャンセル", role: .cancel) {
+                    pendingDeleteQuiz = nil
+                }
+            } message: {
+                if let quiz = pendingDeleteQuiz {
+                    Text("「\(quiz.title)」と関連する結果設定・画像設定を削除します。")
+                }
+            }
             .navigationDestination(isPresented: Binding(
                 get: { state.activeQuiz != nil },
                 set: { if !$0 { state.activeQuiz = nil } }
@@ -134,6 +161,7 @@ struct QuizListView: View {
 
     private func quizCard(_ quiz: Quiz) -> some View {
         let isSharing = sharingQuizID == quiz.id
+        let isDeleting = deletingQuizID == quiz.id
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -163,6 +191,7 @@ struct QuizListView: View {
                     Label("回答", systemImage: "play.fill")
                 }
                 .buttonStyle(.bordered)
+                .disabled(isDeleting)
 
                 Button {
                     editingQuiz = quiz
@@ -171,6 +200,7 @@ struct QuizListView: View {
                     Label("編集", systemImage: "pencil")
                 }
                 .buttonStyle(.bordered)
+                .disabled(isDeleting)
 
                 Button {
                     Task { await prepareShare(for: quiz) }
@@ -179,7 +209,15 @@ struct QuizListView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(PopTheme.accent)
-                .disabled(isSharing)
+                .disabled(isSharing || isDeleting)
+
+                Button(role: .destructive) {
+                    pendingDeleteQuiz = quiz
+                } label: {
+                    Label(isDeleting ? "削除中" : "削除", systemImage: "trash")
+                }
+                .buttonStyle(.bordered)
+                .disabled(isDeleting)
             }
         }
         .popCard(cornerRadius: 18)
@@ -197,5 +235,13 @@ struct QuizListView: View {
 
         shareItems = ["\(payload.message)\n\(payload.shareURL.absoluteString)"]
         showingShareSheet = true
+    }
+
+    private func deleteQuiz(_ quiz: Quiz) async {
+        guard deletingQuizID == nil else { return }
+        deletingQuizID = quiz.id
+        defer { deletingQuizID = nil }
+
+        await state.deleteQuiz(quiz)
     }
 }
