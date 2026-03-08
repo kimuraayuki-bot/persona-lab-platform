@@ -5,8 +5,11 @@ import { fetchQuizByPublicId } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 
 export default async function QuizAnswerPage({ params, searchParams }) {
-  const quizPublicId = params.quizPublicId;
-  const token = typeof searchParams?.token === "string" ? searchParams.token : "";
+  // Next.js 16 treats route params/searchParams as async request APIs.
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
+  const quizPublicId = resolvedParams?.quizPublicId;
+  const token = typeof resolvedSearchParams?.token === "string" ? resolvedSearchParams.token : "";
 
   if (!token) {
     return (
