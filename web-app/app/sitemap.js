@@ -11,6 +11,10 @@ export default function sitemap() {
       lastModified: "2026-03-10"
     },
     {
+      url: `${siteUrl}/ranking`,
+      lastModified: "2026-03-10"
+    },
+    {
       url: `${siteUrl}/terms`,
       lastModified: "2026-03-10"
     },

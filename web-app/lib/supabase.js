@@ -20,6 +20,30 @@ function getConfig() {
   return { url, anonKey };
 }
 
+function authHeaders(anonKey) {
+  return {
+    apikey: anonKey,
+    Authorization: `Bearer ${anonKey}`
+  };
+}
+
+async function fetchJson(endpoint) {
+  const { anonKey } = getConfig();
+
+  const response = await fetch(endpoint, {
+    method: "GET",
+    headers: authHeaders(anonKey),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Fetch failed (${response.status}): ${text}`);
+  }
+
+  return response.json();
+}
+
 function sanitizeCode(value, fallback) {
   const normalized = (value ?? "")
     .trim()
@@ -189,6 +213,79 @@ export async function fetchQuizByPublicId(quizPublicId) {
   }
 
   return normalizeQuiz(rows[0]);
+}
+
+export async function fetchQuizRanking(limit = 20) {
+  const { url } = getConfig();
+  const endpoint = new URL(`${url}/rest/v1/quiz_response_stats`);
+
+  endpoint.searchParams.set(
+    "select",
+    "quiz_id,total_responses,updated_at,quiz:quizzes!inner(public_id,title,description)"
+  );
+  endpoint.searchParams.set("order", "total_responses.desc,updated_at.desc");
+  endpoint.searchParams.set("limit", String(limit));
+
+  const rows = await fetchJson(endpoint);
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return [];
+  }
+
+  const quizIds = rows
+    .map((row) => row.quiz_id)
+    .filter((value) => typeof value === "string" && value.length > 0);
+
+  const resultStatsByQuiz = await fetchQuizResultStats(quizIds);
+
+  return rows.map((row, index) => ({
+    rank: index + 1,
+    quizId: row.quiz_id,
+    totalResponses: Number(row.total_responses ?? 0),
+    updatedAt: row.updated_at ?? null,
+    quiz: {
+      publicId: row.quiz?.public_id ?? "",
+      title: row.quiz?.title ?? "名称未設定",
+      description: row.quiz?.description ?? ""
+    },
+    topResults: resultStatsByQuiz.get(row.quiz_id) ?? []
+  }));
+}
+
+async function fetchQuizResultStats(quizIds) {
+  const grouped = new Map();
+  if (!Array.isArray(quizIds) || quizIds.length === 0) {
+    return grouped;
+  }
+
+  const { url } = getConfig();
+  const endpoint = new URL(`${url}/rest/v1/quiz_result_stats`);
+  endpoint.searchParams.set("select", "quiz_id,result_code,response_count");
+  endpoint.searchParams.set("quiz_id", `in.(${quizIds.join(",")})`);
+  endpoint.searchParams.set("order", "response_count.desc");
+
+  const rows = await fetchJson(endpoint);
+  if (!Array.isArray(rows)) {
+    return grouped;
+  }
+
+  for (const row of rows) {
+    const quizId = row.quiz_id;
+    if (!grouped.has(quizId)) {
+      grouped.set(quizId, []);
+    }
+
+    const entries = grouped.get(quizId);
+    if (entries.length >= 3) {
+      continue;
+    }
+
+    entries.push({
+      resultCode: (row.result_code ?? "").toUpperCase(),
+      responseCount: Number(row.response_count ?? 0)
+    });
+  }
+
+  return grouped;
 }
 
 export async function submitResponse(payload) {

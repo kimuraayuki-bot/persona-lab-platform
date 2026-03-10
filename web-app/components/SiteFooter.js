@@ -6,6 +6,7 @@ export default function SiteFooter() {
       <div className="site-footer-inner">
         <nav className="footer-nav" aria-label="サイト情報">
           <Link href="/">Home</Link>
+          <Link href="/ranking">Ranking</Link>
           <Link href="/privacy">Privacy Policy</Link>
           <Link href="/terms">Terms of Use</Link>
           <Link href="/contact">Contact</Link>

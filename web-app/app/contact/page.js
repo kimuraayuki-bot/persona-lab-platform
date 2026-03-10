@@ -19,7 +19,7 @@ export default function ContactPage() {
         <div className="contact-box">
           <h2>連絡先メールアドレス</h2>
           <p>
-            <a href="mailto:kimuraayuki@gmail.com">kimuraayuki@gmail.com</a>
+            <a href="mailto:sys@ayukiofumiria.com">sys@ayukiofumiria.com</a>
           </p>
           <p className="subtle">
             送信時は、対象ページ URL、発生日時、利用環境、問い合わせ内容を記載してください。

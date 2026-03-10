@@ -62,6 +62,9 @@ export default function HomePage() {
           <Link className="button secondary" href="/q/demo-quiz?token=demo">
             デモ画面を開く
           </Link>
+          <Link className="button secondary" href="/ranking">
+            ランキングを見る
+          </Link>
         </div>
       </section>
 
@@ -98,6 +101,10 @@ export default function HomePage() {
           サービスの利用条件、プライバシー方針、問い合わせ先は以下で公開しています。
         </p>
         <div className="link-grid">
+          <Link className="link-card" href="/ranking">
+            <strong>Ranking</strong>
+            <span className="subtle">回答数の多い公開診断と上位タイプ分布を一覧できます。</span>
+          </Link>
           <Link className="link-card" href="/privacy">
             <strong>Privacy Policy</strong>
             <span className="subtle">取得する情報と利用目的を掲載しています。</span>
