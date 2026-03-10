@@ -23,7 +23,6 @@ struct QuizListView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
                         header
-                        AdMobBannerView(placement: .home)
 
                         if state.quizzes.isEmpty {
                             emptyState
@@ -33,6 +32,9 @@ struct QuizListView: View {
                                     .accessibilityIdentifier("quiz_\(quiz.publicID)")
                             }
                         }
+
+                        AdMobBannerView(placement: .home)
+                            .padding(.top, 6)
                     }
                     .padding(16)
                 }

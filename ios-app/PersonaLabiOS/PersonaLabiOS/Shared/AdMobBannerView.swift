@@ -7,29 +7,50 @@ import UIKit
 struct AdMobBannerView: View {
     let placement: AdMobConfig.BannerPlacement
 
-    @State private var availableWidth = UIScreen.main.bounds.width - 32
+    @State private var availableWidth: CGFloat = 0
 
     var body: some View {
-        let width = max(availableWidth, 320)
-        let adSize = currentOrientationAnchoredAdaptiveBanner(width: width)
+        GeometryReader { geometry in
+            let width = max(geometry.size.width - 16, 1)
 
-        BannerViewContainer(
-            adSize: adSize,
-            adUnitID: AdMobConfig.activeBannerAdUnitID(for: placement)
-        )
-            .frame(width: adSize.size.width, height: adSize.size.height)
-            .frame(maxWidth: .infinity)
-            .background(
-                GeometryReader { geometry in
+            Group {
+                if width > 1 {
+                    let adSize = currentOrientationAnchoredAdaptiveBanner(width: width)
+
+                    BannerViewContainer(
+                        adSize: adSize,
+                        adUnitID: AdMobConfig.activeBannerAdUnitID(for: placement)
+                    )
+                    .frame(width: adSize.size.width, height: adSize.size.height)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(PopTheme.cardFill)
+                            .shadow(color: Color.black.opacity(0.06), radius: 10, x: 0, y: 5)
+                    )
+                } else {
                     Color.clear
-                        .onAppear {
-                            availableWidth = geometry.size.width
-                        }
-                        .onChange(of: geometry.size.width) { _, newValue in
-                            availableWidth = newValue
-                        }
                 }
-            )
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onAppear {
+                availableWidth = width
+            }
+            .onChange(of: width) { _, newValue in
+                availableWidth = newValue
+            }
+        }
+        .frame(height: bannerHeight(for: availableWidth))
+    }
+
+    private func bannerHeight(for width: CGFloat) -> CGFloat {
+        guard width > 1 else {
+            return 0
+        }
+
+        return currentOrientationAnchoredAdaptiveBanner(width: width).size.height + 12
     }
 }
 
