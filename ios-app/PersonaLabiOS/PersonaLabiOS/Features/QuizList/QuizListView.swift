@@ -21,6 +21,7 @@ struct QuizListView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
                         header
+                        AdMobBannerView(placement: .home)
 
                         if state.quizzes.isEmpty {
                             emptyState

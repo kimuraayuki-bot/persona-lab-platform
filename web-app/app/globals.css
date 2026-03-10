@@ -193,6 +193,23 @@ main {
   padding: 10px;
 }
 
+.adsense-shell {
+  display: grid;
+  gap: 10px;
+}
+
+.adsense-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.adsense-shell .adsbygoogle {
+  width: 100%;
+  min-height: 120px;
+}
+
 .scale-wrap {
   display: grid;
   gap: 12px;

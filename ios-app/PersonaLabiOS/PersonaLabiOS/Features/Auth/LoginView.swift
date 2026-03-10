@@ -90,11 +90,6 @@ struct LoginView: View {
                     }
                     .popCard()
 
-                    Button("Appleでログイン（準備中）") {
-                        state.loginWithApple()
-                    }
-                    .buttonStyle(.bordered)
-
                     Text("ログインできない場合は、メール確認・入力ミス・SMTP設定を確認してください。")
                         .font(.caption)
                         .foregroundStyle(.secondary)

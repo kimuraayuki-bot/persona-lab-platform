@@ -64,14 +64,6 @@ final class AppState: ObservableObject {
         )
     }
 
-    func loginWithApple() {
-        if skipLoginForDev {
-            applyDevBypassIdentityIfNeeded()
-            return
-        }
-        errorMessage = "Appleログインは現在準備中です。メールログインを利用してください。"
-    }
-
     func logout() {
         authSession = nil
         activeQuiz = nil

@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import AdSenseSlot from "@/components/AdSenseSlot";
 import { submitResponse } from "@/lib/supabase";
+
+const resultAdSlot = process.env.NEXT_PUBLIC_ADSENSE_RESULT_SLOT_ID ?? "";
 
 function axisValue(axisKey, scores) {
   switch (axisKey) {
@@ -242,6 +245,8 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
           {notice ? <div className="success">{notice}</div> : null}
           {error ? <div className="error">{error}</div> : null}
         </section>
+
+        <AdSenseSlot className="card" slot={resultAdSlot} />
       </main>
     );
   }

@@ -116,6 +116,8 @@ struct ResultView: View {
                         }
                     }
                     .popCard(cornerRadius: 18)
+
+                    AdMobBannerView(placement: .result)
                 }
                 .padding(16)
             }

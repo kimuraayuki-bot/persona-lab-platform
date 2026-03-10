@@ -1,5 +1,7 @@
 import "./globals.css";
 
+const adsenseClientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
+
 export const metadata = {
   title: "Persona Lab",
   description: "カスタム診断をブラウザで回答"
@@ -8,7 +10,18 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="ja">
-      <body>{children}</body>
+      <head>
+        {adsenseClientId ? (
+          <script
+            async
+            crossOrigin="anonymous"
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClientId}`}
+          />
+        ) : null}
+      </head>
+      <body>
+        {children}
+      </body>
     </html>
   );
 }
