@@ -36,6 +36,12 @@ main {
   padding: 20px 16px 32px;
 }
 
+code {
+  background: rgba(24, 32, 53, 0.06);
+  border-radius: 8px;
+  padding: 2px 6px;
+}
+
 .card {
   background: color-mix(in srgb, var(--card) 92%, white 8%);
   border: 1px solid var(--line);
@@ -86,6 +92,134 @@ main {
 .stack {
   display: grid;
   gap: 12px;
+}
+
+.stack.compact {
+  gap: 6px;
+}
+
+.landing-page {
+  padding-bottom: 20px;
+}
+
+.feature-grid,
+.link-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.feature-card,
+.link-card,
+.faq-item {
+  display: grid;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.feature-card h3,
+.faq-item h3,
+.step-item h3,
+.legal-section h2,
+.legal-section h3,
+.contact-box h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.link-card {
+  text-decoration: none;
+}
+
+.step-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 800;
+  background: linear-gradient(120deg, var(--accent), var(--accent-2));
+}
+
+.faq-list,
+.legal-page {
+  display: grid;
+  gap: 12px;
+}
+
+.legal-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.legal-section {
+  display: grid;
+  gap: 8px;
+}
+
+.bullet-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.contact-box {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.site-footer {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 16px 32px;
+}
+
+.site-footer-inner {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(24, 32, 53, 0.08);
+}
+
+.footer-nav {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.footer-nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.footer-copy {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .choice {
@@ -259,5 +393,9 @@ main {
 @media (max-width: 560px) {
   .scale-points {
     gap: 6px;
+  }
+
+  .step-item {
+    grid-template-columns: 1fr;
   }
 }

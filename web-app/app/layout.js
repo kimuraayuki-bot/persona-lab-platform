@@ -1,4 +1,5 @@
 import "./globals.css";
+import SiteFooter from "@/components/SiteFooter";
 
 const adsenseClientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
 
@@ -21,6 +22,7 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         {children}
+        <SiteFooter />
       </body>
     </html>
   );
