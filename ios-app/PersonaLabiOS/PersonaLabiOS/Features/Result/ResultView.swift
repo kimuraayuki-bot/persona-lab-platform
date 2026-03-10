@@ -14,10 +14,14 @@ struct ResultView: View {
     @State private var shareItems: [Any] = []
     @State private var showingCharacterImages = false
     @State private var isPreparingShare = false
+    @State private var showingReportSheet = false
     @State private var helperMessage: String?
 
     private var currentQuiz: Quiz? {
-        state.quizzes.first(where: { $0.id == result.quizID })
+        if let activeQuiz = state.activeQuiz, activeQuiz.id == result.quizID {
+            return activeQuiz
+        }
+        return state.quizzes.first(where: { $0.id == result.quizID })
     }
 
     private var quizPublicID: String? {
@@ -41,6 +45,25 @@ struct ResultView: View {
 
     private var avatarImageData: Data? {
         imageStore.imageData(for: result.resultCode, quizPublicID: quizPublicID)
+    }
+
+    private var shouldShowReportAction: Bool {
+        guard let currentQuiz else { return false }
+        return currentQuiz.creatorID == nil || currentQuiz.creatorID != state.currentUserID
+    }
+
+    private var reportQuiz: Quiz? {
+        guard shouldShowReportAction else { return nil }
+        return currentQuiz
+    }
+
+    private var reportPageURL: String? {
+        guard let currentQuiz else { return nil }
+        var url = URL(string: "myapp://quiz/\(currentQuiz.publicID)")!
+        if let activeShareToken = state.activeShareToken, !activeShareToken.isEmpty {
+            url = url.appending(queryItems: [URLQueryItem(name: "token", value: activeShareToken)])
+        }
+        return url.absoluteString
     }
 
     var body: some View {
@@ -104,6 +127,14 @@ struct ResultView: View {
                         .buttonStyle(.bordered)
                         .disabled(isPreparingShare)
 
+                        if shouldShowReportAction {
+                            Button("この診断を通報") {
+                                showingReportSheet = true
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(isPreparingShare)
+                        }
+
                         if isPreparingShare {
                             ProgressView("共有データを準備中...")
                                 .font(.footnote)
@@ -137,6 +168,18 @@ struct ResultView: View {
                     )
                 } else {
                     CharacterImageSettingsView(profiles: profilesForQuiz)
+                }
+            }
+        }
+        .sheet(isPresented: $showingReportSheet) {
+            if let reportQuiz {
+                ReportQuizSheet(
+                    quizPublicID: reportQuiz.publicID,
+                    quizTitle: reportQuiz.title,
+                    source: .iosResult,
+                    pageURL: reportPageURL
+                ) {
+                    helperMessage = "通報を送信しました。確認後に必要があれば掲載停止します。"
                 }
             }
         }

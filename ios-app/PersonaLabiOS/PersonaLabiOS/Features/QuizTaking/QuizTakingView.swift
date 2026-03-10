@@ -12,6 +12,8 @@ struct QuizTakingView: View {
     @State private var currentIndex = 0
     @State private var selected: [UUID: UUID] = [:]
     @State private var isSubmitting = false
+    @State private var showingReportSheet = false
+    @State private var reportNotice: String?
 
     private var currentQuestion: Question? {
         guard quiz.questions.indices.contains(currentIndex) else { return nil }
@@ -20,6 +22,22 @@ struct QuizTakingView: View {
 
     private var progressText: String {
         "\(currentIndex + 1) / \(max(quiz.questions.count, 1))"
+    }
+
+    private var isOwnedQuiz: Bool {
+        quiz.creatorID != nil && quiz.creatorID == state.currentUserID
+    }
+
+    private var shouldShowReportAction: Bool {
+        !isOwnedQuiz
+    }
+
+    private var reportPageURL: String {
+        var url = URL(string: "myapp://quiz/\(quiz.publicID)")!
+        if let token = state.activeShareToken, !token.isEmpty {
+            url = url.appending(queryItems: [URLQueryItem(name: "token", value: token)])
+        }
+        return url.absoluteString
     }
 
     var body: some View {
@@ -57,12 +75,34 @@ struct QuizTakingView: View {
         }
         .navigationTitle(quiz.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if shouldShowReportAction {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingReportSheet = true
+                    } label: {
+                        Image(systemName: "flag")
+                    }
+                    .accessibilityLabel("診断を通報")
+                }
+            }
+        }
         .navigationDestination(isPresented: Binding(
             get: { state.latestResult != nil },
             set: { if !$0 { state.latestResult = nil } }
         )) {
             if let result = state.latestResult {
                 ResultView(result: result)
+            }
+        }
+        .sheet(isPresented: $showingReportSheet) {
+            ReportQuizSheet(
+                quizPublicID: quiz.publicID,
+                quizTitle: quiz.title,
+                source: .iosQuiz,
+                pageURL: reportPageURL
+            ) {
+                reportNotice = "通報を送信しました。確認後に必要があれば掲載停止します。"
             }
         }
     }
@@ -209,6 +249,12 @@ struct QuizTakingView: View {
                 Text("次へ進むには回答を1つ選択してください。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            if let reportNotice {
+                Text(reportNotice)
+                    .font(.caption)
+                    .foregroundStyle(PopTheme.accentAlt)
             }
         }
         .popCard(cornerRadius: 16, padding: 12)

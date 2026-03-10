@@ -24,6 +24,16 @@ function formatUpdatedAt(value) {
   }).format(date);
 }
 
+function buildReportHref(entry) {
+  const params = new URLSearchParams({
+    quiz_public_id: entry.quiz.publicId,
+    source: "web_ranking",
+    page_url: "/ranking",
+    return_to: "/ranking"
+  });
+  return `/report?${params.toString()}`;
+}
+
 export default async function RankingPage() {
   try {
     const ranking = await fetchQuizRanking(20);
@@ -88,6 +98,9 @@ export default async function RankingPage() {
                 <div className="row wrap">
                   <Link className="button primary" href={`/q/${entry.quiz.publicId}`}>
                     この診断を遊ぶ
+                  </Link>
+                  <Link className="button ghost" href={buildReportHref(entry)}>
+                    通報する
                   </Link>
                 </div>
               </article>

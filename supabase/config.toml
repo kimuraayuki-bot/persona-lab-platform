@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.fetch_playable_quiz]
 verify_jwt = false
+
+[functions.fetch_quiz_ranking]
+verify_jwt = false
+
+[functions.submit_report]
+verify_jwt = false

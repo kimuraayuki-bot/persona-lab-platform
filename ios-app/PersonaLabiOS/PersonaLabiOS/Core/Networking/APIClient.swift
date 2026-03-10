@@ -70,6 +70,14 @@ public struct SubmitResponseResponse: Decodable {
     }
 }
 
+private struct FetchQuizRankingResponse: Decodable {
+    let ranking: [PublicQuizRankingEntry]
+}
+
+private struct SubmitQuizReportResponse: Decodable {
+    let ok: Bool
+}
+
 public struct AppConfig {
     public var apiBaseURL: URL
     public var restBaseURL: URL
@@ -105,6 +113,8 @@ public struct AppConfig {
 public protocol APIClientProtocol {
     func createShareLink(quizID: UUID, accessToken: String?) async throws -> CreateShareLinkResponse
     func submitResponse(payload: SubmitResponseRequest) async throws -> SubmitResponseResponse
+    func fetchQuizRanking(limit: Int) async throws -> [PublicQuizRankingEntry]
+    func submitQuizReport(payload: SubmitQuizReportRequest) async throws
 }
 
 public enum APIClientError: Error, LocalizedError {
@@ -160,6 +170,32 @@ public final class APIClient: APIClientProtocol {
         let (data, response) = try await session.data(for: request)
         try Self.ensureOK(data: data, response: response)
         return try decoder.decode(SubmitResponseResponse.self, from: data)
+    }
+
+    public func fetchQuizRanking(limit: Int) async throws -> [PublicQuizRankingEntry] {
+        let endpoint = config.apiBaseURL.appending(path: "fetch_quiz_ranking")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: nil)
+        request.httpBody = try encoder.encode(["limit": max(1, min(limit, 50))])
+
+        let (data, response) = try await session.data(for: request)
+        try Self.ensureOK(data: data, response: response)
+        return try decoder.decode(FetchQuizRankingResponse.self, from: data).ranking
+    }
+
+    public func submitQuizReport(payload: SubmitQuizReportRequest) async throws {
+        let endpoint = config.apiBaseURL.appending(path: "submit_report")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        applyAuthHeaders(to: &request, accessToken: nil)
+        request.httpBody = try encoder.encode(payload)
+
+        let (data, response) = try await session.data(for: request)
+        try Self.ensureOK(data: data, response: response)
+        _ = try decoder.decode(SubmitQuizReportResponse.self, from: data)
     }
 
     private func applyAuthHeaders(to request: inout URLRequest, accessToken: String?) {
@@ -237,4 +273,29 @@ public final class MockAPIClient: APIClientProtocol {
         let data = try JSONSerialization.data(withJSONObject: json, options: [])
         return try JSONDecoder().decode(SubmitResponseResponse.self, from: data)
     }
+
+    public func fetchQuizRanking(limit: Int) async throws -> [PublicQuizRankingEntry] {
+        let topResults = [
+            RankingResultStat(resultCode: "ENFP", responseCount: 14),
+            RankingResultStat(resultCode: "INTJ", responseCount: 11),
+            RankingResultStat(resultCode: "ISFJ", responseCount: 7)
+        ]
+
+        return [
+            PublicQuizRankingEntry(
+                rank: 1,
+                quizID: SampleData.demoQuiz.id,
+                totalResponses: 32,
+                updatedAt: Date(),
+                quiz: PublicQuizSummary(
+                    publicID: SampleData.demoQuiz.publicID,
+                    title: "みんなのデモ診断",
+                    description: "公開ランキングのサンプルです。"
+                ),
+                topResults: topResults
+            )
+        ]
+    }
+
+    public func submitQuizReport(payload: SubmitQuizReportRequest) async throws {}
 }

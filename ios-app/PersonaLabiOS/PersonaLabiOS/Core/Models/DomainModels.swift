@@ -419,3 +419,124 @@ public struct SharePayload: Codable, Hashable {
         self.message = message
     }
 }
+
+public struct PublicQuizSummary: Codable, Hashable {
+    public var publicID: String
+    public var title: String
+    public var description: String
+
+    enum CodingKeys: String, CodingKey {
+        case publicID = "public_id"
+        case title
+        case description
+    }
+}
+
+public struct RankingResultStat: Codable, Hashable, Identifiable {
+    public var resultCode: String
+    public var responseCount: Int
+
+    public var id: String { resultCode }
+
+    enum CodingKeys: String, CodingKey {
+        case resultCode = "result_code"
+        case responseCount = "response_count"
+    }
+}
+
+public struct PublicQuizRankingEntry: Codable, Hashable, Identifiable {
+    public var rank: Int
+    public var quizID: UUID
+    public var totalResponses: Int
+    public var updatedAt: Date?
+    public var quiz: PublicQuizSummary
+    public var topResults: [RankingResultStat]
+
+    public var id: UUID { quizID }
+
+    enum CodingKeys: String, CodingKey {
+        case rank
+        case quizID = "quiz_id"
+        case totalResponses = "total_responses"
+        case updatedAt = "updated_at"
+        case quiz
+        case topResults = "top_results"
+    }
+}
+
+public enum QuizReportSource: String, Codable, CaseIterable, Hashable {
+    case webRanking = "web_ranking"
+    case webQuiz = "web_quiz"
+    case iosRanking = "ios_ranking"
+    case iosQuiz = "ios_quiz"
+    case iosResult = "ios_result"
+}
+
+public enum QuizReportReason: String, Codable, CaseIterable, Hashable, Identifiable {
+    case illegal
+    case sexual
+    case violent
+    case harassment
+    case copyright
+    case spam
+    case other
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .illegal:
+            return "違法・犯罪"
+        case .sexual:
+            return "性的コンテンツ"
+        case .violent:
+            return "暴力・残虐"
+        case .harassment:
+            return "嫌がらせ・差別"
+        case .copyright:
+            return "著作権・権利侵害"
+        case .spam:
+            return "スパム・釣り"
+        case .other:
+            return "その他"
+        }
+    }
+}
+
+public struct SubmitQuizReportRequest: Codable, Hashable {
+    public var quizPublicID: String
+    public var source: QuizReportSource
+    public var reason: QuizReportReason
+    public var details: String
+    public var reporterEmail: String?
+    public var pageURL: String?
+    public var appVersion: String?
+
+    public init(
+        quizPublicID: String,
+        source: QuizReportSource,
+        reason: QuizReportReason,
+        details: String = "",
+        reporterEmail: String? = nil,
+        pageURL: String? = nil,
+        appVersion: String? = nil
+    ) {
+        self.quizPublicID = quizPublicID
+        self.source = source
+        self.reason = reason
+        self.details = details
+        self.reporterEmail = reporterEmail
+        self.pageURL = pageURL
+        self.appVersion = appVersion
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case quizPublicID = "quiz_public_id"
+        case source
+        case reason
+        case details
+        case reporterEmail = "reporter_email"
+        case pageURL = "page_url"
+        case appVersion = "app_version"
+    }
+}

@@ -67,11 +67,16 @@ function isScaleQuestion(question) {
 }
 
 function buildShareUrl(origin, quizPublicId, token) {
-  const url = new URL(`/q/${quizPublicId}`, origin);
+  const url = new URL(buildQuizPath(quizPublicId, token), origin);
+  return url.toString();
+}
+
+function buildQuizPath(quizPublicId, token) {
+  const url = new URL(`https://example.com/q/${quizPublicId}`);
   if (token) {
     url.searchParams.set("token", token);
   }
-  return url.toString();
+  return `${url.pathname}${url.search}`;
 }
 
 function buildAppUrl(quizPublicId, token) {
@@ -80,6 +85,17 @@ function buildAppUrl(quizPublicId, token) {
     url.searchParams.set("token", token);
   }
   return url.toString();
+}
+
+function buildReportHref(quizPublicId, source, token) {
+  const pageUrl = buildQuizPath(quizPublicId, token);
+  const params = new URLSearchParams({
+    quiz_public_id: quizPublicId,
+    source,
+    page_url: pageUrl,
+    return_to: pageUrl
+  });
+  return `/report?${params.toString()}`;
 }
 
 export default function QuizRunner({ quiz, quizPublicId, token }) {
@@ -256,6 +272,9 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
             <a className="button ghost" href={buildAppUrl(quizPublicId, token)}>
               アプリで開く
             </a>
+            <a className="button ghost" href={buildReportHref(quizPublicId, "web_quiz", token)}>
+              この診断を通報
+            </a>
           </div>
 
           {notice ? <div className="success">{notice}</div> : null}
@@ -336,6 +355,9 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
           <button className="button primary" onClick={onNext} disabled={!canMoveNext || isSubmitting}>
             {isSubmitting ? "送信中..." : currentIndex === quiz.questions.length - 1 ? "結果を見る" : "次へ"}
           </button>
+          <a className="button ghost" href={buildReportHref(quizPublicId, "web_quiz", token)}>
+            この診断を通報
+          </a>
         </div>
 
         {!canMoveNext ? <p className="subtle">次へ進むには選択肢を1つ選んでください。</p> : null}

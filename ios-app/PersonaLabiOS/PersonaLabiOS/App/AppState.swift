@@ -23,6 +23,10 @@ final class AppState: ObservableObject {
     private var authSession: AuthSession?
     private let skipLoginForDev: Bool
 
+    var currentUserID: UUID? {
+        authSession?.userID
+    }
+
     init(
         apiClient: APIClientProtocol = MockAPIClient(),
         config: AppConfig = AppConfig(),
@@ -205,23 +209,20 @@ final class AppState: ObservableObject {
         }
     }
 
+    func presentQuiz(_ quiz: Quiz, shareToken: String? = nil) {
+        activeShareToken = shareToken
+        activeQuiz = quiz
+    }
+
+    func dismissActiveQuiz() {
+        activeQuiz = nil
+        activeShareToken = nil
+    }
+
     func openQuizFromLink(publicID: String, token: String?) async {
-        activeShareToken = token
-
-        if let existing = quizzes.first(where: { $0.publicID == publicID || $0.id.uuidString.lowercased() == publicID.lowercased() }) {
-            activeQuiz = existing
-            return
-        }
-
-        guard let quizDataClient else {
-            errorMessage = "受信した診断を開くにはバックエンド設定が必要です。"
-            return
-        }
-
         do {
-            if let fetched = try await quizDataClient.fetchQuiz(publicID: publicID, accessToken: nil, shareToken: token) {
-                insertOrReplaceQuiz(fetched)
-                activeQuiz = fetched
+            if let quiz = try await fetchPlayableQuiz(publicID: publicID, token: token, storeInLibrary: false) {
+                presentQuiz(quiz, shareToken: token)
             } else {
                 errorMessage = "診断が見つかりませんでした。"
             }
@@ -265,6 +266,10 @@ final class AppState: ObservableObject {
             return try await makeShareURL(for: quiz)
         }
 
+        if let activeQuiz, activeQuiz.id == result.quizID {
+            return try await makeShareURL(for: activeQuiz)
+        }
+
         let accessToken = authSession?.accessToken
 
         if authClient != nil && (accessToken == nil || accessToken?.isEmpty == true) {
@@ -275,6 +280,22 @@ final class AppState: ObservableObject {
     }
 
     private func makeShareURL(for quiz: Quiz) async throws -> URL {
+        if quiz.visibility == .directoryPublic {
+            return config.appDomain
+                .appending(path: "q")
+                .appending(path: quiz.publicID)
+        }
+
+        if let activeQuiz,
+           activeQuiz.publicID == quiz.publicID,
+           let activeShareToken,
+           !activeShareToken.isEmpty {
+            return config.appDomain
+                .appending(path: "q")
+                .appending(path: quiz.publicID)
+                .appending(queryItems: [URLQueryItem(name: "token", value: activeShareToken)])
+        }
+
         let accessToken = authSession?.accessToken
 
         if authClient != nil && (accessToken == nil || accessToken?.isEmpty == true) {
@@ -321,6 +342,26 @@ final class AppState: ObservableObject {
             insertOrReplaceQuiz(published)
             return try await apiClient.createShareLink(quizID: published.id, accessToken: session.accessToken).shareURL
         }
+    }
+
+    private func fetchPlayableQuiz(publicID: String, token: String?, storeInLibrary: Bool) async throws -> Quiz? {
+        if let existing = quizzes.first(where: { $0.publicID == publicID || $0.id.uuidString.lowercased() == publicID.lowercased() }) {
+            return existing
+        }
+
+        guard let quizDataClient else {
+            throw APIClientError.server(statusCode: 500, message: "診断取得クライアントが未設定です")
+        }
+
+        guard let fetched = try await quizDataClient.fetchQuiz(publicID: publicID, accessToken: nil, shareToken: token) else {
+            return nil
+        }
+
+        if storeInLibrary {
+            insertOrReplaceQuiz(fetched)
+        }
+
+        return fetched
     }
 
     private func insertOrReplaceQuiz(_ quiz: Quiz) {

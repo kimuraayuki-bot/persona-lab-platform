@@ -9,6 +9,7 @@ struct QuizListView: View {
     @State private var editingQuiz: Quiz?
     @State private var pendingDeleteQuiz: Quiz?
     @State private var deletingQuizID: UUID?
+    @State private var showingRanking = false
 
     @State private var showingShareSheet = false
     @State private var sharingQuizID: UUID?
@@ -133,11 +134,14 @@ struct QuizListView: View {
             }
             .navigationDestination(isPresented: Binding(
                 get: { state.activeQuiz != nil },
-                set: { if !$0 { state.activeQuiz = nil } }
+                set: { if !$0 { state.dismissActiveQuiz() } }
             )) {
                 if let quiz = state.activeQuiz {
                     QuizTakingView(quiz: quiz)
                 }
+            }
+            .navigationDestination(isPresented: $showingRanking) {
+                PublicQuizRankingView()
             }
         }
     }
@@ -155,6 +159,15 @@ struct QuizListView: View {
             Text("各診断カードから編集・リンク発行ができます。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+
+            Button {
+                showingRanking = true
+            } label: {
+                Label("みんなのランキングを見る", systemImage: "chart.bar.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(PopTheme.accentAlt)
         }
         .popCard()
     }
@@ -228,7 +241,7 @@ struct QuizListView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
                     Button {
-                        state.activeQuiz = quiz
+                        state.presentQuiz(quiz)
                     } label: {
                         Label("回答", systemImage: "play.fill")
                             .frame(maxWidth: .infinity)
