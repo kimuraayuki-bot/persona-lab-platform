@@ -20,8 +20,8 @@ Deno.serve(async (req) => {
     const token = body.token as string | undefined;
     const answers = body.answers as Array<{ question_id: string; choice_id: string }> | undefined;
 
-    if (!quizPublicID || !token || !answers || answers.length === 0) {
-      return json({ error: "quiz_public_id, token, answers are required" }, 400);
+    if (!quizPublicID || !answers || answers.length === 0) {
+      return json({ error: "quiz_public_id and answers are required" }, 400);
     }
 
     const fingerprint = req.headers.get("x-forwarded-for") ?? "unknown";
@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
 
     const { data: quiz, error: quizError } = await admin
       .from("quizzes")
-      .select("id, public_id")
+      .select("id, public_id, visibility")
       .eq("public_id", quizPublicID)
       .single();
 
@@ -40,20 +40,26 @@ Deno.serve(async (req) => {
       return json({ error: "quiz not found" }, 404);
     }
 
-    const tokenHash = await sha256(token);
-    const { data: shareLink, error: linkError } = await admin
-      .from("share_links")
-      .select("id, expires_at")
-      .eq("quiz_id", quiz.id)
-      .eq("token_hash", tokenHash)
-      .single();
+    if (normalizeVisibility(quiz.visibility) !== "directory_public") {
+      if (!token) {
+        return json({ error: "token required" }, 403);
+      }
 
-    if (linkError || !shareLink) {
-      return json({ error: "invalid token" }, 403);
-    }
+      const tokenHash = await sha256(token);
+      const { data: shareLink, error: linkError } = await admin
+        .from("share_links")
+        .select("id, expires_at")
+        .eq("quiz_id", quiz.id)
+        .eq("token_hash", tokenHash)
+        .single();
 
-    if (shareLink.expires_at && new Date(shareLink.expires_at).getTime() < Date.now()) {
-      return json({ error: "token expired" }, 403);
+      if (linkError || !shareLink) {
+        return json({ error: "invalid token" }, 403);
+      }
+
+      if (shareLink.expires_at && new Date(shareLink.expires_at).getTime() < Date.now()) {
+        return json({ error: "token expired" }, 403);
+      }
     }
 
     const { data: questions, error: questionError } = await admin
@@ -163,6 +169,10 @@ function json(payload: unknown, status: number) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function normalizeVisibility(value: string | null | undefined): "share_link" | "directory_public" {
+  return value === "directory_public" ? "directory_public" : "share_link";
 }
 
 async function sha256(value: string): Promise<string> {

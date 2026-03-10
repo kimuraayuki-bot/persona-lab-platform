@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { fetchQuizRanking } from "@/lib/supabase";
 
 export const metadata = {
@@ -33,7 +34,7 @@ export default async function RankingPage() {
           <span className="badge">Ranking</span>
           <h1 className="title">回答数ランキング</h1>
           <p className="subtle">
-            公開診断のうち、回答数が多いものを上位から表示しています。各カードでは回答数と上位タイプ分布を確認できます。
+            ランキング掲載を許可した診断だけを表示しています。各カードからそのまま診断を遊べます。
           </p>
         </section>
 
@@ -82,6 +83,12 @@ export default async function RankingPage() {
                       );
                     })
                   )}
+                </div>
+
+                <div className="row wrap">
+                  <Link className="button primary" href={`/q/${entry.quiz.publicId}`}>
+                    この診断を遊ぶ
+                  </Link>
                 </div>
               </article>
             ))}

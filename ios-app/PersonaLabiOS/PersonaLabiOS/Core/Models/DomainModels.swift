@@ -41,7 +41,26 @@ public struct Quiz: Identifiable, Codable, Hashable {
 }
 
 public enum Visibility: String, Codable, CaseIterable, Hashable {
-    case linkOnly = "link_only"
+    case linkOnly = "share_link"
+    case directoryPublic = "directory_public"
+
+    public var title: String {
+        switch self {
+        case .linkOnly:
+            return "共有リンク限定"
+        case .directoryPublic:
+            return "ランキング掲載可"
+        }
+    }
+
+    public var summary: String {
+        switch self {
+        case .linkOnly:
+            return "作成者が発行したURLを知っている人だけが回答できます。"
+        case .directoryPublic:
+            return "ランキングと公開ページに表示され、token なしでも回答できます。"
+        }
+    }
 }
 
 public enum AxisID: String, Codable, CaseIterable, Hashable {

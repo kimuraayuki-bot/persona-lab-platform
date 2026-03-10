@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct QuizListView: View {
+    @Environment(\.openURL) private var openURL
     @EnvironmentObject private var state: AppState
 
     @State private var showingEditor = false
@@ -44,6 +45,26 @@ struct QuizListView: View {
                             showingCharacterImages = true
                         } label: {
                             Label("共通キャラ画像設定", systemImage: "person.crop.square.filled.and.at.rectangle")
+                        }
+
+                        Divider()
+
+                        Button {
+                            openLegalPage(path: "terms")
+                        } label: {
+                            Label("利用規約", systemImage: "doc.text")
+                        }
+
+                        Button {
+                            openLegalPage(path: "privacy")
+                        } label: {
+                            Label("プライバシー", systemImage: "hand.raised")
+                        }
+
+                        Button {
+                            openLegalPage(path: "contact")
+                        } label: {
+                            Label("お問い合わせ", systemImage: "envelope")
                         }
 
                         Button(role: .destructive) {
@@ -199,7 +220,7 @@ struct QuizListView: View {
             HStack {
                 Label("設問 \(quiz.questions.count)", systemImage: "list.bullet.rectangle")
                 Spacer()
-                Label("回答リンク対応", systemImage: "link")
+                Label(quiz.visibility.title, systemImage: quiz.visibility == .directoryPublic ? "globe" : "link")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -258,6 +279,11 @@ struct QuizListView: View {
 
         shareItems = ["\(payload.message)\n\(payload.shareURL.absoluteString)"]
         showingShareSheet = true
+    }
+
+    private func openLegalPage(path: String) {
+        let url = state.config.appDomain.appending(path: path)
+        openURL(url)
     }
 
     private func deleteQuiz(_ quiz: Quiz) async {

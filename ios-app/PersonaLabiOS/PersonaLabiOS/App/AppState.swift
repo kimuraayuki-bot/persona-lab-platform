@@ -219,7 +219,7 @@ final class AppState: ObservableObject {
         }
 
         do {
-            if let fetched = try await quizDataClient.fetchQuiz(publicID: publicID) {
+            if let fetched = try await quizDataClient.fetchQuiz(publicID: publicID, accessToken: nil, shareToken: token) {
                 insertOrReplaceQuiz(fetched)
                 activeQuiz = fetched
             } else {
@@ -306,7 +306,11 @@ final class AppState: ObservableObject {
                 } catch let publishError as QuizDataClientError {
                     if case .server(let statusCode, _) = publishError,
                        statusCode == 409,
-                       let existing = try await quizDataClient.fetchQuiz(publicID: quiz.publicID) {
+                       let existing = try await quizDataClient.fetchQuiz(
+                            publicID: quiz.publicID,
+                            accessToken: session.accessToken,
+                            shareToken: nil
+                       ) {
                         published = existing
                     } else {
                         throw publishError

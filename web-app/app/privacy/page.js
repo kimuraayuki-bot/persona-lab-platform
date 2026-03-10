@@ -30,6 +30,7 @@ export default function PrivacyPage() {
           <h2>2. 利用目的</h2>
           <ul className="bullet-list">
             <li>診断の回答受付、結果表示、共有機能の提供</li>
+            <li>ランキング掲載可として公開された診断の一覧表示と回答数集計</li>
             <li>不正利用の防止、障害調査、品質改善</li>
             <li>お問い合わせへの対応</li>
             <li>広告配信および利用状況の分析</li>

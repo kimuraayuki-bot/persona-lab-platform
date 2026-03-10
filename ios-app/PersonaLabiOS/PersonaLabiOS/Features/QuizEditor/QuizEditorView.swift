@@ -8,6 +8,7 @@ struct QuizEditorView: View {
     let editingQuiz: Quiz?
     @State private var title: String
     @State private var description: String
+    @State private var visibility: Visibility
     @State private var questions: [QuestionDraft]
     @State private var axisDefinitions: [AxisDefinition]
     @State private var resultProfiles: [QuizResultProfile]
@@ -24,6 +25,7 @@ struct QuizEditorView: View {
         let initialAxisDefinitions = AxisDefinition.normalized(editingQuiz?.axisDefinitions ?? AxisDefinition.defaultSet())
         _title = State(initialValue: editingQuiz?.title ?? "")
         _description = State(initialValue: editingQuiz?.description ?? "")
+        _visibility = State(initialValue: editingQuiz?.visibility ?? .linkOnly)
         _questions = State(initialValue: Self.initialDrafts(from: editingQuiz))
         _axisDefinitions = State(initialValue: initialAxisDefinitions)
         _resultProfiles = State(
@@ -182,6 +184,17 @@ struct QuizEditorView: View {
             TextField("説明（任意）", text: $description, axis: .vertical)
                 .lineLimit(2...4)
                 .textFieldStyle(.roundedBorder)
+
+            Picker("公開範囲", selection: $visibility) {
+                ForEach(Visibility.allCases, id: \.self) { option in
+                    Text(option.title).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Text(visibility.summary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -691,7 +704,7 @@ struct QuizEditorView: View {
             creatorID: editingQuiz?.creatorID,
             title: title,
             description: description,
-            visibility: editingQuiz?.visibility ?? .linkOnly,
+            visibility: visibility,
             questions: mappedQuestions,
             axisDefinitions: normalizedAxisDefinitions,
             resultProfiles: normalizedResultProfiles,

@@ -1,6 +1,3 @@
-const QUIZ_SELECT =
-  "id,public_id,title,description,questions(id,prompt,order_index,choices:choices!choices_question_id_fkey(id,body,order_index)),axis_definitions:quiz_axes(axis_key,order_index,is_enabled,positive_code,negative_code,positive_label,negative_label,tie_break),result_profiles:quiz_result_profiles(result_code,role_name,summary,detail,image_url)";
-
 const AXIS_ORDER = ["ei", "sn", "tf", "jp"];
 const DEFAULT_AXIS_CODES = {
   ei: { positive: "E", negative: "I" },
@@ -179,40 +176,43 @@ function normalizeQuiz(raw) {
     publicId: raw.public_id,
     title: raw.title,
     description: raw.description ?? "",
+    visibility: raw.visibility === "directory_public" ? "directory_public" : "share_link",
     axisDefinitions,
     resultProfiles,
     questions
   };
 }
 
-export async function fetchQuizByPublicId(quizPublicId) {
+export async function fetchQuizByPublicId(quizPublicId, token = "") {
   const { url, anonKey } = getConfig();
-
-  const endpoint = new URL(`${url}/rest/v1/quizzes`);
-  endpoint.searchParams.set("select", QUIZ_SELECT);
-  endpoint.searchParams.set("public_id", `eq.${quizPublicId}`);
-  endpoint.searchParams.set("limit", "1");
+  const endpoint = `${url}/functions/v1/fetch_playable_quiz`;
 
   const response = await fetch(endpoint, {
-    method: "GET",
+    method: "POST",
     headers: {
+      "Content-Type": "application/json",
       apikey: anonKey,
       Authorization: `Bearer ${anonKey}`
     },
+    body: JSON.stringify({
+      quiz_public_id: quizPublicId,
+      token: token || undefined
+    }),
     cache: "no-store"
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Quiz fetch failed (${response.status}): ${text}`);
+    const payload = await response.json().catch(() => ({}));
+    const message = typeof payload?.error === "string" ? payload.error : `Quiz fetch failed (${response.status})`;
+    throw new Error(message);
   }
 
-  const rows = await response.json();
-  if (!Array.isArray(rows) || rows.length === 0) {
+  const row = await response.json();
+  if (!row || typeof row !== "object") {
     return null;
   }
 
-  return normalizeQuiz(rows[0]);
+  return normalizeQuiz(row);
 }
 
 export async function fetchQuizRanking(limit = 20) {

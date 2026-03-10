@@ -309,10 +309,10 @@ struct QuizTakingView: View {
         Task {
             defer { isSubmitting = false }
             do {
-                if let token = state.activeShareToken {
+                if state.activeShareToken != nil || (quiz.visibility == .directoryPublic && quiz.creatorID != nil) {
                     let payload = SubmitResponseRequest(
                         quizPublicID: quiz.publicID,
-                        token: token,
+                        token: state.activeShareToken,
                         answers: answers
                     )
                     let submitted = try await state.apiClient.submitResponse(payload: payload)

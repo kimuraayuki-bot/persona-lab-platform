@@ -66,6 +66,22 @@ function isScaleQuestion(question) {
   return Array.isArray(question?.choices) && question.choices.length === 7;
 }
 
+function buildShareUrl(origin, quizPublicId, token) {
+  const url = new URL(`/q/${quizPublicId}`, origin);
+  if (token) {
+    url.searchParams.set("token", token);
+  }
+  return url.toString();
+}
+
+function buildAppUrl(quizPublicId, token) {
+  const url = new URL(`myapp://quiz/${quizPublicId}`);
+  if (token) {
+    url.searchParams.set("token", token);
+  }
+  return url.toString();
+}
+
 export default function QuizRunner({ quiz, quizPublicId, token }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -178,7 +194,7 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
   };
 
   const onCopy = async () => {
-    const shareUrl = `${window.location.origin}/q/${quizPublicId}?token=${encodeURIComponent(token)}`;
+    const shareUrl = buildShareUrl(window.location.origin, quizPublicId, token);
     const displayName = roleName ? `${resultCode}（${roleName}）` : resultCode;
     const text = `私の診断結果は ${displayName} でした。あなたも回答してみてください。\n${shareUrl}`;
 
@@ -191,7 +207,7 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
   };
 
   const onShare = async () => {
-    const shareUrl = `${window.location.origin}/q/${quizPublicId}?token=${encodeURIComponent(token)}`;
+    const shareUrl = buildShareUrl(window.location.origin, quizPublicId, token);
     const displayName = roleName ? `${resultCode}（${roleName}）` : resultCode;
     const text = `私の診断結果は ${displayName} でした。あなたも回答してみてください。`;
 
@@ -237,7 +253,7 @@ export default function QuizRunner({ quiz, quizPublicId, token }) {
             <button className="button secondary" onClick={onCopy}>
               共有文をコピー
             </button>
-            <a className="button ghost" href={`myapp://quiz/${quizPublicId}?token=${encodeURIComponent(token)}`}>
+            <a className="button ghost" href={buildAppUrl(quizPublicId, token)}>
               アプリで開く
             </a>
           </div>

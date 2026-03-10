@@ -20,10 +20,10 @@ public struct CreateShareLinkResponse: Codable {
 
 public struct SubmitResponseRequest: Codable {
     public var quizPublicID: String
-    public var token: String
+    public var token: String?
     public var answers: [ResponseAnswer]
 
-    public init(quizPublicID: String, token: String, answers: [ResponseAnswer]) {
+    public init(quizPublicID: String, token: String? = nil, answers: [ResponseAnswer]) {
         self.quizPublicID = quizPublicID
         self.token = token
         self.answers = answers

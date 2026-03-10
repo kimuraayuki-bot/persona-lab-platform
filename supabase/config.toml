@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.submit_response]
 verify_jwt = false
+
+[functions.fetch_playable_quiz]
+verify_jwt = false

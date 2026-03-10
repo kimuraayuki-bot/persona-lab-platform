@@ -34,7 +34,15 @@ export default function TermsPage() {
         </section>
 
         <section className="legal-section">
-          <h2>3. 免責事項</h2>
+          <h2>3. 公開設定とランキング掲載</h2>
+          <p className="subtle">
+            診断作成者がランキング掲載可として保存した診断は、公開ランキングや公開回答ページに表示されることがあります。
+            共有リンク限定として保存した診断は、作成者が発行したURLを知る利用者向けに提供されます。
+          </p>
+        </section>
+
+        <section className="legal-section">
+          <h2>4. 免責事項</h2>
           <p className="subtle">
             当サービスは、継続的な提供、完全性、正確性、特定目的への適合性を保証するものではありません。
             サービス利用により発生した損害について、運営者は故意または重過失がある場合を除き責任を負いません。
@@ -42,14 +50,14 @@ export default function TermsPage() {
         </section>
 
         <section className="legal-section">
-          <h2>4. サービス変更・停止</h2>
+          <h2>5. サービス変更・停止</h2>
           <p className="subtle">
             運営上必要と判断した場合、予告なくサービス内容の変更、停止、終了を行うことがあります。
           </p>
         </section>
 
         <section className="legal-section">
-          <h2>5. 規約の改定</h2>
+          <h2>6. 規約の改定</h2>
           <p className="subtle">
             本規約は必要に応じて改定されることがあります。改定後は本ページに掲載した時点で効力を生じます。
           </p>

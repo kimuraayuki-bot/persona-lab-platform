@@ -5,7 +5,7 @@ public protocol QuizDataClientProtocol {
     func updateQuiz(quiz: Quiz, creatorID: UUID, accessToken: String) async throws -> Quiz
     func deleteQuiz(quizID: UUID, creatorID: UUID, accessToken: String) async throws
     func listCreatorQuizzes(creatorID: UUID, accessToken: String) async throws -> [Quiz]
-    func fetchQuiz(publicID: String) async throws -> Quiz?
+    func fetchQuiz(publicID: String, accessToken: String?, shareToken: String?) async throws -> Quiz?
 }
 
 public enum QuizDataClientError: Error, LocalizedError {
@@ -101,7 +101,7 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
             creatorID: createdQuiz.creatorID,
             title: createdQuiz.title,
             description: createdQuiz.description,
-            visibility: Visibility(rawValue: createdQuiz.visibility) ?? .linkOnly,
+            visibility: Self.decodeVisibility(createdQuiz.visibility),
             questions: createdQuestions,
             axisDefinitions: createdAxisDefinitions,
             resultProfiles: createdResultProfiles,
@@ -183,7 +183,7 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
             creatorID: updatedQuiz.creatorID,
             title: updatedQuiz.title,
             description: updatedQuiz.description,
-            visibility: Visibility(rawValue: updatedQuiz.visibility) ?? .linkOnly,
+            visibility: Self.decodeVisibility(updatedQuiz.visibility),
             questions: recreatedQuestions,
             axisDefinitions: recreatedAxisDefinitions,
             resultProfiles: recreatedResultProfiles,
@@ -227,7 +227,15 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
         return rows.map(Self.mapQuizRow)
     }
 
-    public func fetchQuiz(publicID: String) async throws -> Quiz? {
+    public func fetchQuiz(publicID: String, accessToken: String? = nil, shareToken: String? = nil) async throws -> Quiz? {
+        if let accessToken, !accessToken.isEmpty {
+            return try await fetchQuizViaREST(publicID: publicID, accessToken: accessToken)
+        }
+
+        return try await fetchPlayableQuiz(publicID: publicID, shareToken: shareToken)
+    }
+
+    private func fetchQuizViaREST(publicID: String, accessToken: String) async throws -> Quiz? {
         let select = selectColumns
         let queryItems = [
             URLQueryItem(name: "select", value: select),
@@ -240,11 +248,35 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
             method: "GET",
             queryItems: queryItems,
             body: Optional<Int>.none,
-            accessToken: nil,
+            accessToken: accessToken,
             preferRepresentation: false
         )
 
         return rows.first.map(Self.mapQuizRow)
+    }
+
+    private func fetchPlayableQuiz(publicID: String, shareToken: String?) async throws -> Quiz? {
+        let endpoint = config.apiBaseURL.appending(path: "fetch_playable_quiz")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(config.anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(config.anonKey)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try encoder.encode(FetchPlayableQuizRequest(quizPublicID: publicID, token: shareToken))
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let http = response as? HTTPURLResponse else {
+            throw QuizDataClientError.invalidResponse
+        }
+
+        if http.statusCode == 404 {
+            return nil
+        }
+
+        try Self.ensureOK(data: data, response: response)
+        let row = try decoder.decode(QuizRow.self, from: data)
+        return Self.mapQuizRow(row)
     }
 
     private var selectColumns: String {
@@ -526,12 +558,23 @@ public final class SupabaseQuizClient: QuizDataClientProtocol {
             creatorID: row.creatorID,
             title: row.title,
             description: row.description,
-            visibility: Visibility(rawValue: row.visibility) ?? .linkOnly,
+            visibility: decodeVisibility(row.visibility),
             questions: questions,
             axisDefinitions: axisDefinitions,
             resultProfiles: resultProfiles,
             createdAt: row.createdAt
         )
+    }
+
+    private static func decodeVisibility(_ rawValue: String) -> Visibility {
+        switch rawValue {
+        case Visibility.directoryPublic.rawValue:
+            return .directoryPublic
+        case "link_only", Visibility.linkOnly.rawValue:
+            return .linkOnly
+        default:
+            return .linkOnly
+        }
     }
 
     private static func mapAxisRows(_ rows: [AxisDefinitionRow]?) -> [AxisDefinition] {
@@ -570,6 +613,16 @@ private struct CreateQuizRow: Codable {
         case title
         case description
         case visibility
+    }
+}
+
+private struct FetchPlayableQuizRequest: Codable {
+    let quizPublicID: String
+    let token: String?
+
+    enum CodingKeys: String, CodingKey {
+        case quizPublicID = "quiz_public_id"
+        case token
     }
 }
 
