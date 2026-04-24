@@ -5,6 +5,11 @@ enum DeepLinkHandler {
     static func handle(_ url: URL, state: AppState) {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
 
+        if url.scheme == "myapp", url.host == "auth", url.pathComponents.dropFirst().first == "confirmed" {
+            state.handleEmailConfirmationRedirect()
+            return
+        }
+
         let quizPublicID: String?
         if url.scheme == "myapp", url.host == "quiz" {
             quizPublicID = url.pathComponents.dropFirst().first

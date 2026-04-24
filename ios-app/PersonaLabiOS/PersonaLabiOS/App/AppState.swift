@@ -121,7 +121,7 @@ final class AppState: ObservableObject {
                     return
                 }
 
-                authNoticeMessage = "仮登録が完了しました。確認メールのリンクを開いてからログインしてください。"
+                authNoticeMessage = "確認メールを送信しました。メール内リンクで認証を完了した後、アプリに戻ってログインしてください。"
                 return
             }
 
@@ -229,6 +229,11 @@ final class AppState: ObservableObject {
         } catch {
             errorMessage = "診断の取得に失敗しました: \(error.localizedDescription)"
         }
+    }
+
+    func handleEmailConfirmationRedirect() {
+        authNoticeMessage = "メール認証が完了しました。アプリに戻ってログインしてください。"
+        errorMessage = nil
     }
 
     private func applySession(_ session: AuthSession, fallbackEmail: String) {
@@ -345,7 +350,8 @@ final class AppState: ObservableObject {
     }
 
     private func fetchPlayableQuiz(publicID: String, token: String?, storeInLibrary: Bool) async throws -> Quiz? {
-        if let existing = quizzes.first(where: { $0.publicID == publicID || $0.id.uuidString.lowercased() == publicID.lowercased() }) {
+        if storeInLibrary,
+           let existing = quizzes.first(where: { $0.publicID == publicID || $0.id.uuidString.lowercased() == publicID.lowercased() }) {
             return existing
         }
 

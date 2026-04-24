@@ -108,6 +108,12 @@ public struct AppConfig {
             anonKey: anonKey
         )
     }
+
+    public var authConfirmationURL: URL {
+        appDomain
+            .appending(path: "auth")
+            .appending(path: "confirmed")
+    }
 }
 
 public protocol APIClientProtocol {

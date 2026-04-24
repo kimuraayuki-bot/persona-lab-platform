@@ -72,7 +72,11 @@ public final class SupabaseAuthClient: AuthClientProtocol {
     }
 
     public func signUp(email: String, password: String) async throws -> AuthSession? {
-        let endpoint = config.authBaseURL.appending(path: "signup")
+        let endpoint = config.authBaseURL
+            .appending(path: "signup")
+            .appending(queryItems: [
+                URLQueryItem(name: "redirect_to", value: config.authConfirmationURL.absoluteString)
+            ])
 
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"

@@ -13,7 +13,7 @@ struct LoginView: View {
 
     private var modeDescription: String {
         if isSignUpMode {
-            return "初回は仮登録され、確認メールのリンクを開くとログインできます。"
+            return "確認メールを送信します。メール内リンクを開くと完了ページが表示され、その後ログインできます。"
         }
         return "登録済みメールアドレスでログインします。"
     }
@@ -90,7 +90,7 @@ struct LoginView: View {
                     }
                     .popCard()
 
-                    Text("ログインできない場合は、メール確認・入力ミス・SMTP設定を確認してください。")
+                    Text("ログインできない場合は、メール確認・入力ミス・SMTP設定を確認してください。認証後はアプリに戻って同じメールアドレスでログインします。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
